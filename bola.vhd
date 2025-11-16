@@ -42,7 +42,7 @@ entity bola is
         data_bola: in std_logic_vector(3 downto 0);
         valid_bola: in std_logic;
         ready_bola: out std_logic;
-        RGBbola: out std_logic_vector(12 downto 0)
+        RGBbola: out std_logic_vector(11 downto 0)
         );
 end bola;
 
@@ -52,8 +52,8 @@ architecture Behavioral of bola is
 constant WIDTH  : natural := 512;
 constant HEIGHT : natural := 480;
 
--- constantes sobre los lÌmites de pantalla
--- una vez tengamos el radio de la bola los deberÌamos modificar
+-- constantes sobre los l√≠mites de pantalla
+-- una vez tengamos el radio de la bola los deber√≠amos modificar
 constant XMIN      : unsigned(9 downto 0) := to_unsigned(0, 10);
 constant XMAX      : unsigned(9 downto 0) := to_unsigned(WIDTH-1, 10);
 constant YMIN      : unsigned(9 downto 0) := to_unsigned(0, 10);
@@ -61,12 +61,12 @@ constant YMAX      : unsigned(9 downto 0) := to_unsigned(HEIGHT-1, 10);
 
 signal posx, p_posx: unsigned(9 downto 0);
 signal posy, p_posy: unsigned(9 downto 0);
-signal velx, p_velx: unsigned(9 downto 0); --cu·ntos pixeles le vamos a sumar cada vez que se mueve
-signal vely, p_vely: unsigned(9 downto 0); -- cu·ntos pixeles se desplaza a la izquierda
+signal velx, p_velx: unsigned(9 downto 0); --cu√°ntos pixeles le vamos a sumar cada vez que se mueve
+signal vely, p_vely: unsigned(9 downto 0); -- cu√°ntos pixeles se desplaza a la izquierda
 signal arriba, p_arriba: std_logic; --1 (arriba), 0(abajo)
 signal dcha, p_dcha: std_logic; --1 (derecha), 0(abajo)
 type tipo_estado is (
-     REPOSO, MOVER, CHOQUE_PALA
+     REPOSO, MOVER, CHOQUE_PALA, CHOQUE_BLOQUE
 );
 signal estado, p_estado: tipo_estado;
 
@@ -110,12 +110,16 @@ begin
     -----------------------------------------------------------
     process(estado,posx,posy,arriba,dcha)
     begin 
+    
+    
         case estado is
        
             when REPOSO =>
                 ready_bola <= '1';
                 if(valid_bola='1' and data_bola="0000") then
                     p_estado <= CHOQUE_PALA;
+                elsif (valid_bola='1' and data_bola="0001") then
+                    p_estado <= CHOQUE_BLOQUE;
                 elsif (refresh='1') then
                     p_estado <= MOVER;
                 else
@@ -123,12 +127,12 @@ begin
                 end if;
                 
             when MOVER =>
-                -- aquÌ hay que hacer toda la lÛgica dependiendo de arriba
+                -- aqu√≠ hay que hacer toda la l√≥gica dependiendo de arriba
                 -- velocidad y todas esas cosas
                 
                 -- Comprobamos primero el derecha/izquierda
                 if(dcha='1') then
-                    -- condiciÛn de que no desborde ( mi pantalla va a ser de 512X480)
+                    -- condici√≥n de que no desborde ( mi pantalla va a ser de 512X480)
                        if (posx + velx <= XMAX) then
                           p_posx <= posx + velx;
                        else 
@@ -136,7 +140,7 @@ begin
                           p_dcha <= '0'; -- rebote hacia el otro lado
                        end if;
                 else
-                    -- CondiciÛn de que no desborde por la izquierda
+                    -- Condici√≥n de que no desborde por la izquierda
                       if (posx - velx <= XMIN) then
                           p_posx <= XMIN;
                           p_dcha <= '1';
@@ -159,14 +163,23 @@ begin
                     if (posy - vely >= YMIN) then
                         p_posy <= posy - vely;
                     else
-                        -- aquÌ se supone que debo morir porque he tocado el suelo
+                        -- aqu√≠ se supone que debo morir porque he tocado el suelo
                         p_arriba <= '1';
                     end if;
                end if;
                
                -- Nos vamos al estado de reposo
                p_estado <= REPOSO;  
+               
+            -- Queda hacer toda la l√≥gica del choque_bloque   
+            when CHOQUE_BLOQUE =>
+            --esto hay que hacer toda la l√≥gica porque podr√≠a venir de arriba o arriba
+            -- b√°sico (si llega a este estado hay que invertir la direcci√≥n vertical)
+                p_arriba <= not arriba;
+                ready_bola <= '0';
+                p_estado <= REPOSO;   
             
+                        
             when CHOQUE_PALA =>  
                 ready_bola <= '0';
                 p_arriba <= '1';        
@@ -176,3 +189,4 @@ begin
     
 
 end Behavioral;
+
