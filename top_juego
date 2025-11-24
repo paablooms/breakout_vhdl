@@ -120,7 +120,7 @@ component pala is
 end component;
 
 signal ex, ey : std_logic_vector(9 downto 0);
-signal RGBin, RGBpala, RGBbola : std_logic_vector(11 downto 0);
+signal RGBin, RGBpala, RGBbola, RGBbloque : std_logic_vector(11 downto 0);
 signal ref : std_logic;
 
 begin
@@ -177,18 +177,18 @@ U4 : bola
     
 U5 : control_juego
     Port map(
-        clk          => ,   -- Reloj
-        reset        => ,   -- Reset
+        clk          => clk,   -- Reloj
+        reset        => reset,   -- Reset
 
-        RGB_bola     => ,   -- Color de la bola
-        RGB_bloque   => ,   -- Color del bloque (si tienes bloques)
-        RGB_pala     => ,   -- Color de la pala
+        RGB_bola     => RGBbola,   -- Color de la bola
+        RGB_bloque   => RGBbloque,   -- Color del bloque (si tienes bloques)
+        RGB_pala     => RGBpala,   -- Color de la pala
 
         data_bloque  => ,   -- Datos hacia el bloque
         valid_bloque => ,   -- Valid
         ready_bloque => ,   -- Ready
 
-        RGB_in       => ,   -- Salida final hacia el VGA
+        RGB_in       => RGBin,   -- Salida final hacia el VGA
 
         data_bola    => ,   -- Datos hacia la bola
         valid_bola   => ,   -- Valid para la bola
