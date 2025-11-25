@@ -14,7 +14,6 @@ end entity;
 
 architecture rtl of memoria_bloques is
 
-  -- 4096 posiciones (porque 2^12)
   type ram_type is array (0 to 4095) of std_logic_vector(11 downto 0);
   signal mem : ram_type := (others => (others => '0'));
 
