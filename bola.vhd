@@ -108,8 +108,21 @@ begin
     -----------------------------------------------------------
     -- Proceso combinacional 
     -----------------------------------------------------------
-    process(estado,posx,posy,arriba,dcha)
+    process(estado, posx, posy, velx, vely,
+        arriba, dcha,
+        valid_bola, data_bola, refresh)
     begin 
+    
+    -- valores por defecto (evita latches)
+        p_estado   <= estado;
+        p_posx     <= posx;
+        p_posy     <= posy;
+        p_velx     <= velx;
+        p_vely     <= vely;
+        p_arriba   <= arriba;
+        p_dcha     <= dcha;
+        ready_bola <= '0';
+        RGBbola    <= (others => '0');  -- de momento negro
     
     
         case estado is
@@ -133,7 +146,7 @@ begin
                 -- Comprobamos primero el derecha/izquierda
                 if(dcha='1') then
                     -- condición de que no desborde ( mi pantalla va a ser de 512X480)
-                       if (posx + velx <= XMAX) then
+                       if (posx + velx +8 <= XMAX) then
                           p_posx <= posx + velx;
                        else 
                           p_posx <= XMAX;
@@ -152,19 +165,21 @@ begin
                 -- Comprobamos si va para arriba o para abajo
                 if (arriba = '1') then
                     -- comprobamos que no desborde por arriba
-                    if (<no desborda por arriba>) then
+                    if (posy + vely <= YMAX) then
                         p_posy <= posy + vely;
                     else
                         p_arriba <= '0';
+                        p_posy <= YMAX;
                     end if;
                 
                else
                     -- comprobamos que no desborde por abajo
-                    if (posy - vely >= YMIN) then
+                    if (posy - vely -8>= YMIN) then
                         p_posy <= posy - vely;
                     else
                         -- aquí se supone que debo morir porque he tocado el suelo
                         p_arriba <= '1';
+                        p_posy <= YMIN;
                     end if;
                end if;
                
@@ -186,7 +201,19 @@ begin
                 p_estado <= REPOSO;   
         end case;   
      end process;
+     
+     draw_bola: process(ejex, ejey, posx, posy)
+        begin
+        if (unsigned(ejex) >= posx and unsigned(ejex) < posx + 8 and
+            unsigned(ejey) >= posy and unsigned(ejey) < posy + 8) then
+            RGBbola <= "000011110000";
+        else
+            RGBbola <= (others => '0');
+        end if;
+    end process;
     
+
+
 
 end Behavioral;
 
