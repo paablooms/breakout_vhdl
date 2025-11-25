@@ -38,14 +38,18 @@ use IEEE.STD_LOGIC_1164.ALL;
 entity control_juego is
  Port (
     clk,reset : in std_logic;
-
+    
+    -- posición
+    ejex    : in std_logic_vector (9 downto 0);
+    ejey    : in std_logic_vector (9 downto 0); 
+    
 -- RGBs de entrada (son los que tenemos que comparar)
     RGB_bola   : in  std_logic_vector(11 downto 0);
     RGB_bloque : in  std_logic_vector(11 downto 0);
     RGB_pala   : in  std_logic_vector(11 downto 0);
 
     -- Intercambio con bloques
-    data_bloque  : out std_logic_vector(3 downto 0);
+    data_bloque  : out std_logic_vector(7 downto 0); --va a llevar la dirección del bloque
     valid_bloque : out std_logic;
     ready_bloque : in  std_logic;
 
@@ -139,10 +143,11 @@ RGB_in <= RGB_bola or RGB_bloque or RGB_pala;
                 
              when TX_AXI_BLOQUE_BORRAR =>
                 -- esta parte es la que no sé las condiciones que tengo que poner 
-                -- no entiendo muy bien qué hace data_bloque 
-                -- voy a suponer un valor por ahora  
-                data_bloque <= "0000";
-                valid_bloque <= '1'; 
+                
+                --asignamos la posición del pixel al data_bloque
+            data_bloque(3 downto 0) <= ejex(8 downto 5); -- columna
+            data_bloque(7 downto 4) <= ejey(7 downto 4); -- fila
+            valid_bloque <= '1';
                 
                 if (ready_bloque = '1') then 
                     p_estado <= REPOSO;
