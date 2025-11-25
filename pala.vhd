@@ -65,12 +65,12 @@ end process;
 
 rgb: process(ejex,ejey)
 	begin
-		if(unsigned(ejex) > posp-40 and unsigned(ejex)<posp+40 and unsigned(ejey)>10 and unsigned(ejey)<30) then
+		if(unsigned(ejex) > posp and unsigned(ejex)<posp+80 and unsigned(ejey)>10 and unsigned(ejey)<30) then
 			RGBpala <= "111100000000";
     else
 			RGBpala <= (others => '0');
-
     end if;
+    
 end process;
 
 RGBin <= RGBpala;
