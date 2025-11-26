@@ -71,56 +71,8 @@ component juego is
            RGBin : out STD_LOGIC_VECTOR (11 downto 0));
 end component;
 
-component bola is
-      Port (
-        clk: in std_logic;
-        reset: in std_logic;
-        refresh: in std_logic;
-        ejex: in std_logic_vector(9 downto 0); --coordenada x de la bola
-        ejey: in std_logic_vector(9 downto 0); -- coordenada y de la bola
-        data_bola: in std_logic_vector(3 downto 0);
-        valid_bola: in std_logic;
-        ready_bola: out std_logic;
-        RGBbola: out std_logic_vector(11 downto 0)
-        );
-end component;
-
-component control_juego is
-Port (
-    clk,reset : in std_logic;
-
--- RGBs de entrada (son los que tenemos que comparar)
-    RGB_bola   : in  std_logic_vector(11 downto 0);
-    RGB_bloque : in  std_logic_vector(11 downto 0);
-    RGB_pala   : in  std_logic_vector(11 downto 0);
-
-    -- Intercambio con bloques
-    data_bloque  : out std_logic_vector(3 downto 0);
-    valid_bloque : out std_logic;
-    ready_bloque : in  std_logic;
-
-    -- 
-    RGB_in     : out std_logic_vector(11 downto 0);
-
-    -- Interfaz con "bola"
-    data_bola  : out std_logic_vector(3 downto 0);
-    valid_bola : out std_logic;
-    ready_bola : in  std_logic
-      );
-end component;
-
-component pala is
-    Port ( left : in STD_LOGIC;
-           right : in STD_LOGIC;
-           ejex : in STD_LOGIC_VECTOR(9 downto 0);
-           ejey : in STD_LOGIC_VECTOR(9 downto 0);
-           refresh : in STD_LOGIC;
-           pos_p : out std_logic_vector(9 downto 0);
-           RGBin : out STD_LOGIC_VECTOR (11 downto 0));
-end component;
-
 signal ex, ey : std_logic_vector(9 downto 0);
-signal RGBin, RGBpala, RGBbola, RGBbloque : std_logic_vector(11 downto 0);
+signal RGBin : std_logic_vector(11 downto 0);
 signal ref : std_logic;
 
 begin
@@ -148,51 +100,5 @@ U2 : juego
         refresh => ref,
         RGBin => RGBin
         );
-
-U3 : pala
-    Port map(
-        left    => left,   -- Señal izquierda
-        right   => right,   -- Señal derecha
-        ejex    => ex,   -- Coordenada X del VGA
-        ejey    => ey,   -- Coordenada Y del VGA
-        refresh => ref,   -- Señal de refresco del VGA
-        pos_p   => ,   -- Salida con la posición de la pala
-        RGBin   => RGBpala    -- Color generado por la pala (12 bits)
-    );
-
-    
-U4 : bola
-    Port map(
-        clk        => clk,   -- Reloj
-        reset      => reset,   -- Reset
-        refresh    => ref,   -- Señal de refresco del VGA
-        ejex       => ex,   -- Coordenada X
-        ejey       => ey,   -- Coordenada Y
-        data_bola  => ,   -- Datos desde el control del juego
-        valid_bola => ,   -- Validación desde el control del juego
-        ready_bola => ,   -- Indica que la bola está lista
-        RGBbola    => RGBbola    -- Color generado por la bola
-    );
-
-    
-U5 : control_juego
-    Port map(
-        clk          => clk,   -- Reloj
-        reset        => reset,   -- Reset
-
-        RGB_bola     => RGBbola,   -- Color de la bola
-        RGB_bloque   => RGBbloque,   -- Color del bloque (si tienes bloques)
-        RGB_pala     => RGBpala,   -- Color de la pala
-
-        data_bloque  => ,   -- Datos hacia el bloque
-        valid_bloque => ,   -- Valid
-        ready_bloque => ,   -- Ready
-
-        RGB_in       => RGBin,   -- Salida final hacia el VGA
-
-        data_bola    => ,   -- Datos hacia la bola
-        valid_bola   => ,   -- Valid para la bola
-        ready_bola   =>     -- Ready desde la bola
-    );
 
 end Behavioral;
