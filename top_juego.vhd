@@ -51,15 +51,13 @@ architecture Behavioral of juego_top is
 component VGA_driver is
     Port ( clk : in STD_LOGIC;
         reset : in STD_LOGIC;
-        RGBin : in STD_LOGIC_VECTOR (11 downto 0);
-        ejex : out STD_LOGIC_VECTOR (9 downto 0);
-        ejey : out STD_LOGIC_VECTOR (9 downto 0);
-        refresh : out STD_LOGIC;
         VS : out STD_LOGIC;
         HS : out STD_LOGIC;
-        RED : out STD_LOGIC_VECTOR (3 downto 0);
-        GRN : out STD_LOGIC_VECTOR (3 downto 0);
-        BLU : out STD_LOGIC_VECTOR (3 downto 0));
+        ejex_out : out STD_LOGIC_VECTOR(9 downto 0);
+        ejey_out : out STD_LOGIC_VECTOR(9 downto 0);
+        o1h : out STD_LOGIC;
+        o1v: out STD_LOGIC;
+        refresh_out : out STD_LOGIC);
 end component;
 
 component juego is
@@ -71,9 +69,18 @@ component juego is
            RGBin : out STD_LOGIC_VECTOR (11 downto 0));
 end component;
 
+component gen_color is
+    Port (         
+        blank_h : in STD_LOGIC;
+        blank_v : in STD_LOGIC;
+        RGBin : in STD_LOGIC_VECTOR (11 downto 0);
+        RGBout : out STD_LOGIC_VECTOR (11 downto 0));
+end component;
+
 signal ex, ey : std_logic_vector(9 downto 0);
-signal RGBin : std_logic_vector(11 downto 0);
+signal RGBin, RGBout : std_logic_vector(11 downto 0);
 signal ref : std_logic;
+signal o1h_s, o1v_s : std_logic;
 
 begin
 U1 : VGA_driver
@@ -82,13 +89,11 @@ U1 : VGA_driver
         reset => reset,
         VS => VS,
         HS => HS,
-        RGBin => RGBin,
-        RED => RGB(12 downto 9),
-        GRN => RGB(8 downto 5),
-        BLU =>RGB(3 downto 0),
-        ejex => ex,
-        ejey => ey,
-        refresh => ref
+        o1h => o1h_s,  
+        o1v => o1v_s,
+        ejex_out => ex,
+        ejey_out => ey,
+        refresh_out => ref
         );
 
 U2 : juego
@@ -101,4 +106,12 @@ U2 : juego
         RGBin => RGBin
         );
 
+U3 : gen_color
+    Port map(
+        blank_h => o1h_s,
+        blank_v => o1v_s,
+        RGBin => RGBin,
+        RGBout => RGBout
+        );
+        
 end Behavioral;
