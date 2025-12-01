@@ -104,12 +104,47 @@ component fondo is
            RGBin : out STD_LOGIC_VECTOR (11 downto 0));
 end component;
 
+component draw_bloque is
+    Port (
+    data_out_B: in std_logic;  --bit leído de la RAM que te dice si hay bloque ahí o no
+    ejex: in std_logic_vector(9 downto 0); --coordenada x del píxel actual
+    ejey: in std_logic_vector(9 downto 0); --coordenada y del píxel actual
+    ADDR_B: out std_logic_vector(7 downto 0); --dirección en memoria
+    RGB_bloque: out std_logic_vector(11 downto 0)); --ccolor del bloque
+end component;
+
+component borrar_bloque is 
+     Port (
+    clk, reset   : in  std_logic;
+    data_bloque  : in  std_logic_vector(7 downto 0);  -- dirección del bloque
+    valid_bloque : in  std_logic;  
+    ready_bloque : out std_logic; 
+    WR_A         : out std_logic;                     -- habilita escritura
+    ADDR_A       : out std_logic_vector(7 downto 0);  -- dirección del bloque
+    data_in_A    : out std_logic                      -- '0' = borrar bloque
+  );
+end component;
+
+component blk_mem_gen_0 is
+    Port(
+        clka : in std_logic;
+        wea  : in std_logic_vector(0 downto 0);
+        addra: in std_logic_vector(7 downto 0);
+        dina : in std_logic_vector(0 downto 0);
+        clkb : in std_logic;
+        addrb: in std_logic_vector(7 downto 0);
+        doutb: out std_logic_vector(0 downto 0)
+        );
+end component;
+
+
 signal posp : unsigned(9 downto 0) := "0011111111";
 signal ex, ey : std_logic_vector(9 downto 0);
 signal RGBfondo, RGBpala, RGBbola, RGBbloque : std_logic_vector(11 downto 0);
 signal ref : std_logic;
 signal posp_s : std_logic_vector(9 downto 0);
 
+-- señales que salen de control_juego
 signal data_bola_s    : std_logic_vector(3 downto 0);
 signal valid_bola_s   : std_logic;
 signal ready_bola_s   : std_logic;
@@ -117,6 +152,20 @@ signal ready_bola_s   : std_logic;
 signal data_bloque_s  : std_logic_vector(3 downto 0);
 signal valid_bloque_s : std_logic;
 signal ready_bloque_s : std_logic;
+signal RGB_in_s : std_logic_vector(11 downto 0);
+
+-- señales que salen del borrar_bloque
+signal data_in_A_s : std_logic;
+signal ADDR_A_s : std_logic_vector(7 downto 0);
+signal WR_A_s : std_logic;
+
+-- señales que salen de la memoria
+signal data_out_A_s: std_logic;
+signal data_out_B_s: std_logic;
+
+-- señales que salen de draw_bloques
+signal ADDR_B_s: std_logic_vector(7 downto 0);
+signal RGB_bloque_s : std_logic_vector(11 downto 0);
 
 begin
 
@@ -167,12 +216,43 @@ U5 : control_juego
         valid_bloque => valid_bloque_s,   -- Valid
         ready_bloque => ready_bloque_s,   -- Ready
 
-        RGB_in       => RGBin,   -- Salida final hacia el VGA
+        RGB_in       => RGB_in_s,   -- Salida final hacia el VGA
 
         data_bola    => data_bola_s ,   -- Datos hacia la bola
         valid_bola   => valid_bola_s ,   -- Valid para la bola
         ready_bola   => ready_bola_s     -- Ready desde la bola
 
     );
+    
+ U6: borrar_bloque
+    Port map(
+        data_bloque => data_bloque_s,
+        valid_bloque => valid_bloque_s,
+        ready_bloque => ready_bloque_s,
+        WR_A => WR_A_s,
+        data_in_A => data_in_A_s
+        );
+        
+  U7: draw_bloque
+    Port map(
+        ejex => ex,
+        ejey => ey,
+        data_out_B => data_out_B_s,
+        RGB_bloque => RGB_bloque_s,
+        ADDR_B => ADDR_B_s
+        );
+        
+   U8: blk_mem_gen_0
+     Port map(
+        clka => clk,
+        wea => WR_A_s, 
+        addra => ADDR_A_s,
+        dina => data_in_A_s,
+        clkb => clk,
+        addrb => ADDR_B_s,
+        doutb => data_out_B_s
+        );
+        
+  RGBin <= RGB_in_s;
 
 end Behavioral;
