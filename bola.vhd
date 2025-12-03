@@ -122,7 +122,6 @@ begin
         p_arriba   <= arriba;
         p_dcha     <= dcha;
         ready_bola <= '0';
-        RGBbola    <= (others => '0');  -- de momento negro
     
     
         case estado is
@@ -216,4 +215,3 @@ begin
 
 
 end Behavioral;
-
