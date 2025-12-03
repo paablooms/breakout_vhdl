@@ -115,7 +115,7 @@ U3 : gen_color
         blank_h => o1h_s,
         blank_v => o1v_s,
         RGBin => RGBin,
-        RGBout => RGBout
+        RGBout => RGB
         );
         
 end Behavioral;
