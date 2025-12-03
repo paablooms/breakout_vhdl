@@ -48,39 +48,45 @@ architecture Behavioral of pala is
 signal posp : unsigned(9 downto 0) := "0011111111";
 signal RGBpala : STD_LOGIC_VECTOR (11 downto 0);
 
-begin 
-mov: process(clk, reset)
+begin
+process(clk, reset)
 begin
     if reset = '1' then
         posp <= to_unsigned(223, 10);  -- posición inicial
+
     elsif rising_edge(clk) then
-    -- valor por defecto para evitar latches
-    posp <= posp;
+        -- asignación por defecto para evitar latches
+        posp <= posp;
 
-    if refresh = '1' then
-        if left = '1' then
-            if posp > 0 then
-                posp <= posp - 1;
-            else
-                posp <= posp;  -- alcanza límite inferior
-            end if;
+        -- original: if refresh = '1' then
+        if refresh = '1' then
 
-        elsif right = '1' then
-            if posp < 512 then
-                posp <= posp + 1;
+            -- original: if (left = '1' and posp > 0)
+            if left = '1' then
+                if posp > 0 then
+                    posp <= posp - 1;
+                else
+                    posp <= posp;   -- tope inferior
+                end if;
+
+            -- original: elsif (right = '1' and posp < 480)
+            elsif right = '1' then
+                if posp < 448 then
+                    posp <= posp + 1;
+                else
+                    posp <= posp;   -- tope superior
+                end if;
+
             else
-                posp <= posp;  -- alcanza límite superior
+                posp <= posp;       -- ni left ni right
             end if;
 
         else
-            posp <= posp;      -- ni left ni right
+            posp <= posp;           -- sin refresh
         end if;
-
-    else
-        posp <= posp;          -- sin refresh
     end if;
-end if;
 end process;
+
 
 
 rgb: process(ejex,ejey,posp)
