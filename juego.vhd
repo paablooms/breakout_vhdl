@@ -63,7 +63,7 @@ end component;
 component control_juego is
 Port (
     clk,reset : in std_logic;
-
+    ejex, ejey : in std_logic_vector(9 downto 0);
 -- RGBs de entrada (son los que tenemos que comparar)
     RGB_bola   : in  std_logic_vector(11 downto 0);
     RGB_bloque : in  std_logic_vector(11 downto 0);
@@ -219,7 +219,8 @@ U5 : control_juego
     Port map(
         clk          => clk,   -- Reloj
         reset        => reset,   -- Reset
-
+        ejex         => ex,
+        ejey         => ey,   
         RGB_bola     => RGBbola,   -- Color de la bola
         RGB_bloque   => RGBbloque,   -- Color del bloque (si tienes bloques)
         RGB_pala     => RGBpala,   -- Color de la pala
