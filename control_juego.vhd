@@ -98,7 +98,7 @@ RGB_in <= RGB_bola or RGB_bloque or RGB_pala;
  -----------------------------------------------------------
     -- Proceso combinacional 
     -----------------------------------------------------------
-    process(estado,ready_bola, ready_bloque, RGB_bloque, RGB_bola, RGB_pala)
+    process(estado,ready_bola, ready_bloque, RGB_bloque, RGB_bola, RGB_pala,ejex,ejey)
     begin 
     p_estado <= estado;
     
