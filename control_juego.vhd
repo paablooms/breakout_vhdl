@@ -38,18 +38,14 @@ use IEEE.STD_LOGIC_1164.ALL;
 entity control_juego is
  Port (
     clk,reset : in std_logic;
-    
-    -- posición
-    ejex    : in std_logic_vector (9 downto 0);
-    ejey    : in std_logic_vector (9 downto 0); 
-    
+
 -- RGBs de entrada (son los que tenemos que comparar)
     RGB_bola   : in  std_logic_vector(11 downto 0);
     RGB_bloque : in  std_logic_vector(11 downto 0);
     RGB_pala   : in  std_logic_vector(11 downto 0);
 
     -- Intercambio con bloques
-    data_bloque  : out std_logic_vector(7 downto 0); --va a llevar la dirección del bloque
+    data_bloque  : out std_logic_vector(7 downto 0);
     valid_bloque : out std_logic;
     ready_bloque : in  std_logic;
 
@@ -68,6 +64,7 @@ architecture Behavioral of control_juego is
 type tipo_estado is (
      REPOSO, TX_AXI_BOLA_CHOQUE_LADRILLO, TX_AXI_BLOQUE_BORRAR,TX_AXI_BOLA_CHOQUE_PALA
 );
+constant CERO : std_logic_vector(11 downto 0) := (others => '0');
 signal estado, p_estado: tipo_estado;
 
 begin
@@ -102,6 +99,7 @@ RGB_in <= RGB_bola or RGB_bloque or RGB_pala;
     -----------------------------------------------------------
     process(estado,ready_bola, ready_bloque, RGB_bloque, RGB_bola, RGB_pala)
     begin 
+    p_estado <= estado;
     
     data_bola    <= (others => '0');
     valid_bola   <= '0';
@@ -113,13 +111,13 @@ RGB_in <= RGB_bola or RGB_bloque or RGB_pala;
        
             when REPOSO => 
                 -- choque bola con bloque
-                if(RGB_bola /= (others => '0')) and 
-                (RGB_bloque /= (others => '0')) then
+                if(RGB_bola /= CERO) and 
+                (RGB_bloque /= CERO) then
                     p_estado <= TX_AXI_BOLA_CHOQUE_LADRILLO;
                     
                 -- choque bola con pala 
-                elsif(RGB_bola /= (others => '0')) and
-                (RGB_pala /= (others => '0')) then
+                elsif(RGB_bola /= CERO) and
+                (RGB_pala /= CERO) then
                     p_estado <= TX_AXI_BOLA_CHOQUE_PALA;
                     
                 end if;
@@ -143,11 +141,10 @@ RGB_in <= RGB_bola or RGB_bloque or RGB_pala;
                 
              when TX_AXI_BLOQUE_BORRAR =>
                 -- esta parte es la que no sé las condiciones que tengo que poner 
-                
-                --asignamos la posición del pixel al data_bloque
-            data_bloque(3 downto 0) <= ejex(8 downto 5); -- columna
-            data_bloque(7 downto 4) <= ejey(7 downto 4); -- fila
-            valid_bloque <= '1';
+                -- no entiendo muy bien qué hace data_bloque 
+                -- voy a suponer un valor por ahora  
+                data_bloque <= "00000000";
+                valid_bloque <= '1'; 
                 
                 if (ready_bloque = '1') then 
                     p_estado <= REPOSO;
