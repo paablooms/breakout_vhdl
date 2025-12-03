@@ -32,7 +32,9 @@ use IEEE.NUMERIC_STD.ALL;
 --use UNISIM.VComponents.all;
 
 entity pala is
-    Port ( left : in STD_LOGIC;
+    Port ( clk : in std_logic;
+           reset : in std_logic;
+           left : in STD_LOGIC;
            right : in STD_LOGIC;
            ejex : in STD_LOGIC_VECTOR(9 downto 0);
            ejey : in STD_LOGIC_VECTOR(9 downto 0);
@@ -47,23 +49,23 @@ signal posp : unsigned(9 downto 0) := "0011111111";
 signal RGBpala : STD_LOGIC_VECTOR (11 downto 0);
 
 begin 
-mov: process(left,right,refresh)
+mov: process(clk, reset)
 begin
-
-	if (left = '1' and posp > 32 and refresh = '1') then
-		posp <= posp - 1;
-	else
-		posp <= posp;
-	end if;
-	if (right = '1' and posp < 480 and refresh = '1') then
-		posp <= posp + 1;
-	else
-		posp <= posp;
-	end if;
-	
+    if reset = '1' then
+        posp <= to_unsigned(255, 10);  -- posición inicial
+    elsif rising_edge(clk) then
+        if refresh = '1' then             -- solo muevo cuando refresco
+            if (left = '1' and posp > 32) then
+                posp <= posp - 1;
+            elsif (right = '1' and posp < 480) then
+                posp <= posp + 1;
+            end if;
+        end if;
+    end if;
 end process;
 
-rgb: process(ejex,ejey)
+
+rgb: process(ejex,ejey,posp)
 	begin
 		if(unsigned(ejex) > posp and unsigned(ejex)<posp+80 and unsigned(ejey)>10 and unsigned(ejey)<30) then
 			RGBpala <= "111100000000";
