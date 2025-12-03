@@ -98,6 +98,8 @@ U1 : VGA_driver
 
 U2 : juego
     Port map(
+        clk => clk,
+        reset => reset,
         left => left,
         right => right,
         ejex => ex,
