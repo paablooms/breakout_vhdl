@@ -4,11 +4,11 @@ use IEEE.STD_LOGIC_1164.ALL;
 entity borrar_bloque is
   Port (
     clk, reset   : in  std_logic;
-    data_bloque  : in  std_logic_vector(7 downto 0);  -- direcci髇 del bloque
+    data_bloque  : in  std_logic_vector(7 downto 0);  -- direcci贸n del bloque
     valid_bloque : in  std_logic;  
     ready_bloque : out std_logic; 
     WR_A         : out std_logic;                     -- habilita escritura
-    ADDR_A       : out std_logic_vector(7 downto 0);  -- direcci髇 del bloque
+    ADDR_A       : out std_logic_vector(7 downto 0);  -- direcci贸n del bloque
     data_in_A    : out std_logic                      -- '0' = borrar bloque
   );
 end borrar_bloque;
@@ -41,7 +41,7 @@ begin
     p_estado     <= estado;
     WR_A         <= '0';
     data_in_A    <= '0';                 -- solo importa cuando WR_A = '1'
-    ADDR_A       <= data_bloque;         -- usamos la direcci髇 de entrada
+    ADDR_A       <= data_bloque;         -- usamos la direcci贸n de entrada
     ready_bloque <= '0';
 
     case estado is
@@ -51,7 +51,7 @@ begin
         ready_bloque <= '1';             -- listo para recibir orden
 
         if valid_bloque = '1' then
-          -- ya tenemos data_bloque como direcci髇 del bloque
+          -- ya tenemos data_bloque como direcci贸n del bloque
           p_estado <= ESCRIBIR;
         end if;
 
