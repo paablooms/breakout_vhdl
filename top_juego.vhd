@@ -42,7 +42,7 @@ entity juego_top is
         right : in STD_LOGIC;
         VS : out STD_LOGIC;
         HS : out STD_LOGIC;
-        RGB : out STD_LOGIC_VECTOR (12 downto 0)
+        RGB : out STD_LOGIC_VECTOR (11 downto 0)
         );
 end juego_top;
 
