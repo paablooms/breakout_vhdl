@@ -38,6 +38,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 entity control_juego is
  Port (
     clk,reset : in std_logic;
+    ejex,ejey : in std_logic_vector(9 downto 0);
 
 -- RGBs de entrada (son los que tenemos que comparar)
     RGB_bola   : in  std_logic_vector(11 downto 0);
@@ -143,7 +144,7 @@ RGB_in <= RGB_bola or RGB_bloque or RGB_pala;
                 -- esta parte es la que no sé las condiciones que tengo que poner 
                 -- no entiendo muy bien qué hace data_bloque 
                 -- voy a suponer un valor por ahora  
-                data_bloque <= "00000000";
+                data_bloque  <= ejey(7 downto 4) & ejex(8 downto 5);
                 valid_bloque <= '1'; 
                 
                 if (ready_bloque = '1') then 
