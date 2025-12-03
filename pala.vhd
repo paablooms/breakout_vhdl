@@ -66,7 +66,7 @@ begin
             end if;
 
         elsif right = '1' then
-            if posp < 480 then
+            if posp < 512 then
                 posp <= posp + 1;
             else
                 posp <= posp;  -- alcanza límite superior
