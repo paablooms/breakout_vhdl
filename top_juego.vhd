@@ -61,8 +61,8 @@ component VGA_driver is
 end component;
 
 component juego is
-    Port ( clk => clk;
-           reset => reset;
+    Port ( clk : in STD_LOGIC;
+           reset : in STD_LOGIC;
            left : in STD_LOGIC;
            right : in STD_LOGIC;
            ejex : in STD_LOGIC_VECTOR(9 downto 0);
