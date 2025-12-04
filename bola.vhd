@@ -182,6 +182,25 @@ begin
                 p_estado   <= REPOSO;   
         end case;   
      end process;
-    
+
+           ----------------------------------------------------------------
+    -- DIBUJO BOLA (8x8 verde)
+    ----------------------------------------------------------------
+    draw_bola: process(eje_x, eje_y, posx, posy)
+    begin
+        if ( (unsigned(eje_x) >= posx) and
+             (unsigned(eje_x) <  posx + to_unsigned(8,10)) and
+             (unsigned(eje_y) >= posy) and
+             (unsigned(eje_y) <  posy + to_unsigned(8,10)) ) then
+
+            RED_bola <= "0000";
+            GRN_bola <= "1111";
+            BLU_bola <= "0000";
+        else
+            RED_bola <= (others => '0');
+            GRN_bola <= (others => '0');
+            BLU_bola <= (others => '0');
+        end if;
+    end process;
 
 end Behavioral;
