@@ -46,10 +46,12 @@ constant HEIGHT : natural := 480;
 -- constantes sobre los límites de pantalla (ORIGEN ARRIBA-IZQUIERDA)
 -- XMIN/YMIN: parte superior-izquierda
 -- XMAX/YMAX: parte inferior-derecha
+constant TAM_BOLA : unsigned(9 downto 0) := to_unsigned(8,10);  -- bola 8x8
 constant XMIN      : unsigned(9 downto 0) := to_unsigned(0, 10);
 constant XMAX      : unsigned(9 downto 0) := to_unsigned(WIDTH-1, 10);
 constant YMIN      : unsigned(9 downto 0) := to_unsigned(0, 10);
 constant YMAX      : unsigned(9 downto 0) := to_unsigned(HEIGHT-1, 10);
+
 
 signal posx, p_posx : unsigned(9 downto 0);
 signal posy, p_posy : unsigned(9 downto 0);
@@ -183,24 +185,24 @@ begin
         end case;   
      end process;
 
-           ----------------------------------------------------------------
-    -- DIBUJO BOLA (8x8 verde)
-    ----------------------------------------------------------------
-    draw_bola: process(eje_x, eje_y, posx, posy)
-    begin
-        if ( (unsigned(eje_x) >= posx) and
-             (unsigned(eje_x) <  posx + to_unsigned(8,10)) and
-             (unsigned(eje_y) >= posy) and
-             (unsigned(eje_y) <  posy + to_unsigned(8,10)) ) then
+  ----------------------------------------------------------------
+  -- DIBUJO BOLA (8x8 verde)
+  ----------------------------------------------------------------
+  draw_bola : process(ejex, ejey, posx, posy)
+    variable x_pix, y_pix : unsigned(9 downto 0);
+  begin
+    x_pix := unsigned(ejex);
+    y_pix := unsigned(ejey);
 
-            RED_bola <= "0000";
-            GRN_bola <= "1111";
-            BLU_bola <= "0000";
-        else
-            RED_bola <= (others => '0');
-            GRN_bola <= (others => '0');
-            BLU_bola <= (others => '0');
-        end if;
-    end process;
+    if (x_pix >= posx) and
+       (x_pix <  posx + TAM_BOLA) and
+       (y_pix >= posy) and
+       (y_pix <  posy + TAM_BOLA) then
+        -- Verde
+        RGBbola <= "000011110000";
+    else
+        RGBbola  <= (others => '0');
+    end if;
+  end process;
 
 end Behavioral;
