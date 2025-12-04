@@ -49,7 +49,7 @@ signal posp : unsigned(9 downto 0) := "0011111111";
 signal RGBpala : STD_LOGIC_VECTOR (11 downto 0);
 
 begin
-process(clk, reset)
+process(clk, reset, refresh)
 begin
     if reset = '1' then
         posp <= to_unsigned(223, 10);  -- posición inicial
