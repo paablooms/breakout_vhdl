@@ -64,7 +64,7 @@ signal arriba, p_arriba : std_logic; --1 (arriba), 0(abajo)
 signal dcha,   p_dcha   : std_logic; --1 (derecha), 0(izquierda)
 
 type tipo_estado is (
-     REPOSO, MOVER, CHOQUE_PALA, CHOQUE_BLOQUE, REPOSO_ABSOLUTO, GAME OVER
+     REPOSO, MOVER, CHOQUE_PALA, CHOQUE_BLOQUE, REPOSO_ABSOLUTO, GAME_OVR
 );
 signal estado, p_estado: tipo_estado;
 
@@ -182,7 +182,7 @@ begin
                         p_posy   <= YMAX;
                         game_over <= '1';
                        -- cambiamos a estado GAME_OVER (todo se paraliza)
-                        p_estado <= GAME_OVER;
+                        p_estado <= GAME_OVR;
                     end if;
                 end if;
                 
@@ -206,10 +206,10 @@ begin
                 p_arriba   <= '1';    -- después de la pala va hacia arriba      
                 p_estado   <= REPOSO;   
 
-            when GAME_OVER =>
+            when GAME_OVR =>
                 ready_bola <= '0';
                 game_over <= '1';
-                p_estado   <= GAME_OVER;
+                p_estado   <= GAME_OVR;
         end case;   
      end process;
 
@@ -232,5 +232,7 @@ begin
         RGBbola  <= (others => '0');
     end if;
   end process;
+
+end Behavioral;
 
 end Behavioral;
