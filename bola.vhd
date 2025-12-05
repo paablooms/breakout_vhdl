@@ -28,6 +28,8 @@ entity bola is
         clk        : in  std_logic;
         reset      : in  std_logic;
         refresh    : in  std_logic;
+        left : in STD_LOGIC;
+        right : in STD_LOGIC;
         ejex       : in  std_logic_vector(9 downto 0); --coordenada x de la bola
         ejey       : in  std_logic_vector(9 downto 0); -- coordenada y de la bola
         data_bola  : in  std_logic_vector(3 downto 0);
@@ -61,7 +63,7 @@ signal arriba, p_arriba : std_logic; --1 (arriba), 0(abajo)
 signal dcha,   p_dcha   : std_logic; --1 (derecha), 0(izquierda)
 
 type tipo_estado is (
-     REPOSO, MOVER, CHOQUE_PALA, CHOQUE_BLOQUE
+     REPOSO, MOVER, CHOQUE_PALA, CHOQUE_BLOQUE, REPOSO_ABSOLUTO
 );
 signal estado, p_estado: tipo_estado;
 
@@ -75,9 +77,9 @@ begin
         if rising_edge(clk) then
             if(reset='1') then
                 --valores iniciales de la bola
-                estado  <= REPOSO;
+                estado  <= REPOSO_ABSOLUTO;
                 posx    <= to_unsigned(256,10); -- centro aprox
-                posy    <= to_unsigned(240,10);
+                posy    <= to_unsigned(450,10);
                 velx    <= to_unsigned(1,10);
                 vely    <= to_unsigned(1,10);
                 arriba  <= '1';
@@ -97,7 +99,7 @@ begin
     -----------------------------------------------------------
     -- Proceso combinacional 
     -----------------------------------------------------------
-    process(estado,posx,posy,arriba,dcha,valid_bola,data_bola,refresh,velx,vely)
+    process(estado,left,right,posx,posy,arriba,dcha,valid_bola,data_bola,refresh,velx,vely)
     begin 
     
          -- VALORES POR DEFECTO (se copian los registros)
@@ -113,6 +115,11 @@ begin
     
         case estado is
        
+            when REPOSO_ABSOLUTO =>
+                if (left='1' or right='1') then 
+                    p_estado <= REPOSO;
+                end if;
+                
             when REPOSO =>
                 ready_bola <= '1';
                 if(valid_bola='1' and data_bola="0000") then
