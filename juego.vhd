@@ -64,6 +64,8 @@ component control_juego is
 Port (
     clk,reset : in std_logic;
     ejex, ejey : in std_logic_vector(9 downto 0);
+    right, left : in std_logic;
+    
 -- RGBs de entrada (son los que tenemos que comparar)
     RGB_bola   : in  std_logic_vector(11 downto 0);
     RGB_bloque : in  std_logic_vector(11 downto 0);
@@ -205,6 +207,8 @@ U4 : bola
     Port map(
         clk        => clk,   -- Reloj
         reset      => reset,   -- Reset
+        right      => right,
+        left       => left,
         refresh    => ref,   -- Señal de refresco del VGA
         ejex       => ex,   -- Coordenada X
         ejey       => ey,   -- Coordenada Y
