@@ -35,6 +35,7 @@ entity bola is
         data_bola  : in  std_logic_vector(3 downto 0);
         valid_bola : in  std_logic;
         ready_bola : out std_logic;
+        game_over  : out std_logic;
         RGBbola    : out std_logic_vector(11 downto 0)
         );
 end bola;
@@ -63,7 +64,7 @@ signal arriba, p_arriba : std_logic; --1 (arriba), 0(abajo)
 signal dcha,   p_dcha   : std_logic; --1 (derecha), 0(izquierda)
 
 type tipo_estado is (
-     REPOSO, MOVER, CHOQUE_PALA, CHOQUE_BLOQUE, REPOSO_ABSOLUTO
+     REPOSO, MOVER, CHOQUE_PALA, CHOQUE_BLOQUE, REPOSO_ABSOLUTO, GAME OVER
 );
 signal estado, p_estado: tipo_estado;
 
@@ -84,6 +85,7 @@ begin
                 vely    <= to_unsigned(1,10);
                 arriba  <= '1';
                 dcha    <= '1';
+                
             else
                 estado  <= p_estado;
                 posx    <= p_posx;
@@ -112,6 +114,7 @@ begin
         p_dcha   <= dcha;
     
         ready_bola <= '0';  -- por defecto
+        game_over <= '0';
     
         case estado is
        
@@ -138,17 +141,21 @@ begin
                     -- condición de que no desborde por la derecha
                     if (posx + velx <= XMAX) then
                         p_posx <= posx + velx;
+                        p_estado <= REPOSO;
                     else 
                         p_posx <= XMAX;
                         p_dcha <= '0'; -- rebote hacia la izquierda
+                        p_estado <= REPOSO;
                     end if;
                 else
                     -- Condición de que no desborde por la izquierda
                     if (posx > XMIN + velx) then
                         p_posx <= posx - velx;
+                        p_estado <= REPOSO;
                     else
                         p_posx <= XMIN;
                         p_dcha <= '1';
+                        p_estado <= REPOSO;
                     end if;
                 end if;
                       
@@ -158,26 +165,27 @@ begin
                     -- Va hacia arriba: Y DECRECE
                     if (posy > YMIN + vely) then
                         p_posy <= posy - vely;
+                        p_estado <= REPOSO;
                     else
                         -- ha tocado el techo (parte de arriba)
                         p_posy   <= YMIN;
                         p_arriba <= '0';  -- ahora irá hacia abajo
+                        p_estado <= REPOSO;
                     end if;
                 else
                     -- Va hacia abajo: Y CRECE
                     if (posy < YMAX - vely) then
                         p_posy <= posy + vely;
+                        p_estado <= REPOSO;
                     else
                         -- ha tocado el suelo (parte de abajo de la pantalla)
                         p_posy   <= YMAX;
-                        p_arriba <= '1';  -- rebote hacia arriba
-                        -- si en lugar de rebotar quieres "morir",
-                        -- aquí podrías cambiar a un estado GAME_OVER, etc.
+                        game_over <= '1';
+                       -- cambiamos a estado GAME_OVER (todo se paraliza)
+                        p_estado <= GAME_OVER;
                     end if;
                 end if;
-               
-               -- Nos vamos al estado de reposo
-               p_estado <= REPOSO;  
+                
                
             when CHOQUE_BLOQUE =>
                 -- Si venía subiendo (arriba='1'), ahora la mandamos hacia abajo y la sacamos un paso
@@ -197,6 +205,10 @@ begin
                 ready_bola <= '0';
                 p_arriba   <= '1';    -- después de la pala va hacia arriba      
                 p_estado   <= REPOSO;   
+
+            when GAME_OVER =>
+                ready_bola <= '0';
+                p_estado   <= GAME_OVER;
         end case;   
      end process;
 
