@@ -180,8 +180,16 @@ begin
                p_estado <= REPOSO;  
                
             when CHOQUE_BLOQUE =>
-                -- básico (si llega a este estado hay que invertir la dirección vertical)
-                p_arriba   <= not arriba;
+                -- Si venía subiendo (arriba='1'), ahora la mandamos hacia abajo y la sacamos un paso
+                if arriba = '1' then
+                    p_arriba <= '0';           -- ahora va hacia abajo
+                    p_posy   <= posy + vely;   -- la sacamos un pixel (o vely) hacia abajo
+                else
+                    -- Si venía bajando (arriba='0'), ahora la mandamos hacia arriba y la sacamos un paso
+                    p_arriba <= '1';           
+                    p_posy   <= posy - vely;   -- la sacamos hacia arriba
+                end if;
+            
                 ready_bola <= '0';
                 p_estado   <= REPOSO;   
             
