@@ -56,6 +56,7 @@ component bola is
         data_bola: in std_logic_vector(3 downto 0);
         valid_bola: in std_logic;
         ready_bola: out std_logic;
+        game_over: out std_logic;
         RGBbola: out std_logic_vector(11 downto 0)
         );
 end component;
@@ -141,6 +142,9 @@ component blk_mem_gen_0 is
         );
 end component;
 
+signal game_over_s : std_logic;
+signal left_g, right_g : std_logic;
+
 
 signal posp : unsigned(9 downto 0) := "0011111111";
 signal ex, ey : std_logic_vector(9 downto 0);
@@ -174,6 +178,11 @@ signal wea_v, dina_v, doutb_v : std_logic_vector(0 downto 0);
 
 begin
 
+  --hacemos que todo se paralice si está game over (por si acaso)  
+  left_g        <= left  when game_over_s = '0' else '0';
+  right_g       <= right when game_over_s = '0' else '0';
+  refresh_bola_g <= ref  when game_over_s = '0' else '0';
+    
   ex  <= ejex;
   ey  <= ejey;
   ref <= refresh;
@@ -193,8 +202,8 @@ U3 : pala
     Port map(
         clk => clk,
         reset => reset,
-        left    => left,   -- Señal izquierda
-        right   => right,   -- Señal derecha
+        left    => left_g,   -- Señal izquierda
+        right   => right_g,   -- Señal derecha
         ejex    => ex,   -- Coordenada X del VGA
         ejey    => ey,   -- Coordenada Y del VGA
         refresh => ref,   -- Señal de refresco del VGA
@@ -207,14 +216,15 @@ U4 : bola
     Port map(
         clk        => clk,   -- Reloj
         reset      => reset,   -- Reset
-        right      => right,
-        left       => left,
-        refresh    => ref,   -- Señal de refresco del VGA
+        right      => right_g,
+        left       => left_g,
+        refresh    => refresh_bola_g,   -- Señal de refresco del VGA
         ejex       => ex,   -- Coordenada X
         ejey       => ey,   -- Coordenada Y
         data_bola  => data_bola_s ,   -- Datos desde el control del juego
         valid_bola => valid_bola_s ,   -- Validación desde el control del juego
         ready_bola => ready_bola_s ,   -- Indica que la bola está lista
+        game_over => game_over_s,
         RGBbola    => RGBbola    -- Color generado por la bola
     );
 
@@ -273,6 +283,16 @@ U5 : control_juego
         doutb => doutb_v
         );
         
-  RGBin <= RGB_in_s or RGBfondo;
+  process(RGB_in_s, RGBfondo, game_over_s)
+begin
+    if game_over_s = '1' then
+        -- PANTALLA GAME OVER (por ahora, rojo sólido)
+        RGBin <= "111100000000";  -- por ejemplo, rojo
+    else
+        -- Juego normal
+        RGBin <= RGB_in_s or RGBfondo;
+    end if;
+end process;
+
 
 end Behavioral;
