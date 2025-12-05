@@ -208,6 +208,7 @@ begin
 
             when GAME_OVER =>
                 ready_bola <= '0';
+                game_over <= '1';
                 p_estado   <= GAME_OVER;
         end case;   
      end process;
