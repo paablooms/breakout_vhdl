@@ -48,7 +48,7 @@ begin
 
       ------------------------------------------------------------
       when REPOSO =>
-        ready_bloque <= '1';             -- listo para recibir orden
+                    -- listo para recibir orden
 
         if valid_bloque = '1' then
           -- ya tenemos data_bloque como dirección del bloque
@@ -57,6 +57,7 @@ begin
 
       ------------------------------------------------------------
       when ESCRIBIR =>
+        ready_bloque <= '1'; 
         WR_A      <= '1';                
         data_in_A <= '0';                -- escribir 0 = borrar bloque
         -- ADDR_A sigue siendo data_bloque
