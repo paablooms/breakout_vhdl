@@ -51,6 +51,7 @@ component bola is
         clk: in std_logic;
         reset: in std_logic;
         refresh: in std_logic;
+        left,right: in std_logic;
         ejex: in std_logic_vector(9 downto 0); --coordenada x de la bola
         ejey: in std_logic_vector(9 downto 0); -- coordenada y de la bola
         data_bola: in std_logic_vector(3 downto 0);
@@ -65,7 +66,6 @@ component control_juego is
 Port (
     clk,reset : in std_logic;
     ejex, ejey : in std_logic_vector(9 downto 0);
-    right, left : in std_logic;
     
 -- RGBs de entrada (son los que tenemos que comparar)
     RGB_bola   : in  std_logic_vector(11 downto 0);
@@ -144,6 +144,7 @@ end component;
 
 signal game_over_s : std_logic;
 signal left_g, right_g : std_logic;
+signal refresh_bola_g : std_logic;
 
 
 signal posp : unsigned(9 downto 0) := "0011111111";
@@ -287,7 +288,7 @@ U5 : control_juego
 begin
     if game_over_s = '1' then
         -- PANTALLA GAME OVER (por ahora, rojo sólido)
-        RGBin <= "111100000000";  -- por ejemplo, rojo
+        RGBin <= "000000001111";  -- por ejemplo, rojo
     else
         -- Juego normal
         RGBin <= RGB_in_s or RGBfondo;
