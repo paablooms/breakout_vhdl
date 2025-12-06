@@ -47,16 +47,15 @@ architecture Behavioral of pala is
 
 signal posp, p_posp : unsigned(9 downto 0) := "0011111111";
 signal RGBpala : STD_LOGIC_VECTOR (11 downto 0);
-signal velp : unsigned (1 downto 0);
-signal p_velp    : unsigned(1 downto 0);   -- siguiente velocidad
-signal cycle_cnt : unsigned(2 downto 0);   -- cuenta hasta 4 (5 ciclos)
+signal velp, p_velp : unsigned (2 downto 0);
+signal cycle_cnt : unsigned(5 downto 0);   -- cuenta hasta 4 (5 ciclos)
 
 begin
 sinc: process(clk, reset)
 begin
     if reset = '1' then
         posp      <= to_unsigned(223,10);
-        velp      <= (others => '0');
+        velp      <= "011";  -- velocidad inicial 3
         cycle_cnt <= (others => '0');
 
     elsif rising_edge(clk) then
@@ -82,16 +81,13 @@ begin
 
     else
         -- mantengo pulsado → incrementar contador
-        if cycle_cnt = "100" then   -- valor 4 (ciclo número 5)
-            cycle_cnt <= (others => '0');   -- reinicia para la próxima aceleración
-
-            -- acelerar con saturación a "11"
-            if velp < "11" then
+        if cycle_cnt = "111011" then   -- 59 = ciclo 60
+            cycle_cnt <= (others => '0');   -- reinicia para el próximo ciclo
+            if velp < "111" then             -- límite máximo 7
                 p_velp <= velp + 1;
             else
                 p_velp <= velp;
             end if;
-
         else
             cycle_cnt <= cycle_cnt + 1;
         end if;
