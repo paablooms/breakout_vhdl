@@ -43,6 +43,7 @@ entity juego is
 end juego;
 
 architecture Behavioral of juego is
+constant CERO_RGB : std_logic_vector(11 downto 0) := (others => '0');
 
 --constant posx : unsigned ( 9 downto 0) := to_unsigned(455,10);
 --constant posy : unsigned ( 9 downto 0) := to_unsigned(256,10);
@@ -57,7 +58,7 @@ component bola is
         data_bola: in std_logic_vector(3 downto 0);
         valid_bola: in std_logic;
         ready_bola: out std_logic;
-        game_over: out std_logic;
+        pierde_vida: out std_logic;
         RGBbola: out std_logic_vector(11 downto 0)
         );
 end component;
@@ -142,6 +143,32 @@ component blk_mem_gen_0 is
         );
 end component;
 
+component game_over_text is
+  Port (
+    ejex     : in  std_logic_vector(9 downto 0);
+    ejey     : in  std_logic_vector(9 downto 0);
+    enable   : in  std_logic;
+    RGB_text : out std_logic_vector(11 downto 0)
+  );
+end component;
+
+component vidas_hud is
+  Port (
+    ejex      : in  std_logic_vector(9 downto 0);
+    ejey      : in  std_logic_vector(9 downto 0);
+    num_vidas : in  unsigned(1 downto 0);
+    RGBvidas  : out std_logic_vector(11 downto 0)
+  );
+end component;
+
+signal RGBvidas_s : std_logic_vector(11 downto 0);
+
+
+
+-- señales para el sistema de game over y pérdida de vidas
+signal RGB_gameover : std_logic_vector(11 downto 0);
+signal vidas_reg      : unsigned(1 downto 0);  -- 0..3 (3 vidas)
+signal pierde_vida_s  : std_logic;
 signal game_over_s : std_logic;
 signal left_g, right_g : std_logic;
 signal refresh_bola_g : std_logic;
@@ -225,7 +252,7 @@ U4 : bola
         data_bola  => data_bola_s ,   -- Datos desde el control del juego
         valid_bola => valid_bola_s ,   -- Validación desde el control del juego
         ready_bola => ready_bola_s ,   -- Indica que la bola está lista
-        game_over => game_over_s,
+        pierde_vida => pierde_vida_s,
         RGBbola    => RGBbola    -- Color generado por la bola
     );
 
@@ -284,14 +311,66 @@ U5 : control_juego
         doutb => doutb_v
         );
         
-  process(RGB_in_s, RGBfondo, game_over_s)
+    U9 : game_over_text
+    port map (
+        ejex     => ex,
+        ejey     => ey,
+        enable   => game_over_s,
+        RGB_text => RGB_gameover
+      );
+      
+      U10 : vidas_hud
+  port map(
+    ejex      => ex,
+    ejey      => ey,
+    num_vidas => vidas_reg,
+    RGBvidas  => RGBvidas_s
+  );
+
+
+-- process que va a controlar todo el tema de las vidas y la activación de 
+-- game over en caso de que alcancen las 0 vidas
+ process(clk, reset)
+begin
+    if reset = '1' then
+        vidas_reg   <= to_unsigned(3, 2);  -- tenemos 3 vidas al principio
+        game_over_s <= '0';
+    elsif rising_edge(clk) then
+        -- si ya estamos en GAME OVER, nos quedamos ahí
+        if game_over_s = '1' then
+            game_over_s <= '1';
+        else
+            -- evento de muerte de la bola
+            if pierde_vida_s = '1' then
+                if vidas_reg > 0 then
+                    vidas_reg <= vidas_reg - 1;
+                end if;
+
+                -- si se ha quedado en 0 vidas que pase a GAME OVER
+                if vidas_reg = to_unsigned(1,2) then
+                    -- al decrementar pasará a 0
+                    game_over_s <= '1';
+                end if;
+            end if;
+        end if;
+    end if;
+end process;
+       
+    
+        
+  process(RGB_in_s, RGBfondo,RGB_gameover,RGBvidas_s, game_over_s)
 begin
     if game_over_s = '1' then
         -- PANTALLA GAME OVER (por ahora, rojo sólido)
-        RGBin <= "000000001111";  -- por ejemplo, rojo
+        RGBin <= RGB_gameover;  -- por ejemplo, rojo
     else
-        -- Juego normal
-        RGBin <= RGB_in_s or RGBfondo;
+       -- esto hay que hacerlo así porque si no no se pueden ver las vidas, porque el RGBfondo se impone 
+       -- siempre y dibuja blanco
+       if RGBvidas_s /= CERO_RGB then
+            RGBin <= RGBvidas_s;       -- el HUD VIDAS se impone
+        else
+            RGBin <= RGBfondo or RGB_in_s;         -- si VIDAS no dibuja nada, usa el juego normal
+        end if;
     end if;
 end process;
 
