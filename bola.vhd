@@ -79,6 +79,14 @@ signal sprite_rgb  : std_logic_vector(11 downto 0);
 signal cnt : unsigned(1 downto 0);  -- contador 0..2
 signal p_cnt : unsigned(1 downto 0);
 
+signal ref_bloque_x : unsigned(4 downto 0);
+signal ref_bloque_y : unsigned(3 downto 0);
+
+signal choque_izq   : std_logic := '0';
+signal choque_der   : std_logic := '0';
+signal choque_arr   : std_logic := '0';
+signal choque_ab    : std_logic := '0';
+
 type tipo_estado is (
      REPOSO, MOVER, CHOQUE_PALA, CHOQUE_BLOQUE, REPOSO_ABSOLUTO
 );
@@ -219,18 +227,48 @@ U_sprite_bola : sprite_bola
                 
                
             when CHOQUE_BLOQUE =>
-                -- Si venía subiendo (arriba='1'), ahora la mandamos hacia abajo y la sacamos un paso
-                if arriba = '1' then
-                    p_arriba <= '0';           -- ahora va hacia abajo
-                    p_posy   <= posy + vely;   -- la sacamos un pixel (o vely) hacia abajo
-                else
-                    -- Si venía bajando (arriba='0'), ahora la mandamos hacia arriba y la sacamos un paso
-                    p_arriba <= '1';           
-                    p_posy   <= posy - vely;   -- la sacamos hacia arriba
+            
+                ref_bloque_x <= unsigned(ejex(4 downto 0));
+                ref_bloque_y <= unsigned(ejey(3 downto 0));
+            
+                choque_izq <= '0';
+                choque_der <= '0';
+                choque_arr <= '0';
+                choque_ab  <= '0';
+            
+                if ref_bloque_x = to_unsigned(0,5) then
+                    choque_izq <= '1';
+                elsif ref_bloque_x = to_unsigned(31,5) then
+                    choque_der <= '1';
                 end if;
             
-                ready_bola <= '0';
-                p_estado   <= REPOSO;   
+                if ref_bloque_y = to_unsigned(0,4) then
+                    choque_arr <= '1';
+                elsif ref_bloque_y = to_unsigned(15,4) then
+                    choque_ab <= '1';
+                end if;
+            
+                if choque_izq = '1' then
+                    -- venía desde la izquierda, rebota hacia la derecha
+                    p_dcha <= '1';                  
+                    p_posx <= posx + velx;          
+                elsif choque_der = '1' then
+                    -- venía desde la derecha, rebota hacia la izquierda
+                    p_dcha <= '0';
+                    p_posx <= posx - velx;         
+                end if;
+                
+                if arriba = '1' then
+                    -- venía subiendo, rebota hacia abajo
+                    p_arriba <= '0';
+                    p_posy   <= posy + vely;  
+                else
+                    -- venía bajando, rebota hacia arriba
+                    p_arriba <= '1';
+                    p_posy   <= posy - vely;   
+                end if;
+            
+                p_estado <= REPOSO;
             
             when CHOQUE_PALA =>  
                 ready_bola <= '0';
