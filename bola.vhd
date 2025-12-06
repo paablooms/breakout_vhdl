@@ -268,7 +268,35 @@ U_sprite_bola : sprite_bola
         RGBbola <= (others => '0');
     end if;
   end process;
+      
+vel : process(clk, reset)
+begin
+    if reset = '1' then
+        cnt    <= "00";
+        p_velx <= "1000";  
+        p_vely <= "1000";
+    elsif rising_edge(clk) then
+        if pierde_vida = '1' then
+            if cnt = "10" then
+                cnt <= "10";  
+            else
+                cnt <= unsigned(cnt) + 1;
+            end if;
+        end if;
 
+        case cnt is
+            when "00" =>
+                p_velx <= "1000";  -- 8
+                p_vely <= "1000";
+            when "01" =>
+                p_velx <= "0101";  -- 5
+                p_vely <= "0101";
+            when others =>  -- "10"
+                p_velx <= "0011";  -- 3
+                p_vely <= "0011";
+        end case;
+    end if;
+end process;
 
 
 end Behavioral;
