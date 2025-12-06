@@ -35,7 +35,7 @@ entity bola is
         data_bola  : in  std_logic_vector(3 downto 0);
         valid_bola : in  std_logic;
         ready_bola : out std_logic;
-        game_over  : out std_logic;
+        pierde_vida: out std_logic;
         RGBbola    : out std_logic_vector(11 downto 0)
         );
 end bola;
@@ -64,7 +64,7 @@ signal arriba, p_arriba : std_logic; --1 (arriba), 0(abajo)
 signal dcha,   p_dcha   : std_logic; --1 (derecha), 0(izquierda)
 
 type tipo_estado is (
-     REPOSO, MOVER, CHOQUE_PALA, CHOQUE_BLOQUE, REPOSO_ABSOLUTO, GAME_OVR
+     REPOSO, MOVER, CHOQUE_PALA, CHOQUE_BLOQUE, REPOSO_ABSOLUTO
 );
 signal estado, p_estado: tipo_estado;
 
@@ -114,7 +114,7 @@ begin
         p_dcha   <= dcha;
     
         ready_bola <= '0';  -- por defecto
-        game_over <= '0';
+        pierde_vida <= '0';
     
         case estado is
        
@@ -178,11 +178,16 @@ begin
                         p_posy <= posy + vely;
                         p_estado <= REPOSO;
                     else
-                        -- ha tocado el suelo (parte de abajo de la pantalla)
-                        p_posy   <= YMAX;
-                        game_over <= '1';
-                       -- cambiamos a estado GAME_OVER (todo se paraliza)
-                        p_estado <= GAME_OVR;
+                        -- TOCA SUELO: pierde una vida
+                        pierde_vida <= '1';
+            
+                        -- Recolocamos la bola como al inicio
+                        p_posx   <= to_unsigned(256,10);
+                        p_posy   <= to_unsigned(450,10);
+                        p_arriba <= '1';
+                        p_dcha   <= '1';
+            
+                        p_estado <= REPOSO_ABSOLUTO; -- igual que tras arriba 
                     end if;
                 end if;
                 
@@ -205,11 +210,6 @@ begin
                 ready_bola <= '0';
                 p_arriba   <= '1';    -- después de la pala va hacia arriba      
                 p_estado   <= REPOSO;   
-
-            when GAME_OVR =>
-                ready_bola <= '0';
-                game_over <= '1';
-                p_estado   <= GAME_OVR;
         end case;   
      end process;
 
