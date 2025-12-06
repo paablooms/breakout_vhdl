@@ -56,13 +56,11 @@ begin
     if reset = '1' then
         posp      <= to_unsigned(223,10);
         velp      <= "011";  -- velocidad inicial 3
-        cycle_cnt <= (others => '0');
 
     elsif rising_edge(clk) then
         if refresh = '1' then
             posp      <= p_posp;
             velp      <= p_velp;
-            cycle_cnt <= cycle_cnt;  -- actualizado abajo en comb
         end if;
     end if;
 end process;
@@ -72,27 +70,36 @@ comb: process(posp, velp, cycle_cnt, left, right)
 begin
     p_posp <= posp;
     p_velp <= velp;
-
-    -- Si no pulsas, solo reinicia el contador, no la velocidad
-    if left = '0' and right = '0' then
-        cycle_cnt <= (others => '0');  -- reinicia contador
-    else
-        -- Mantengo pulsado → incrementar contador
-        if cycle_cnt = "111011" then  -- 59 = ciclo 60
-            cycle_cnt <= (others => '0');  -- reinicia contador
-            if velp < "111" then           -- saturación a 7
-                p_velp <= velp + 1;
-            end if;
-        else
-            cycle_cnt <= cycle_cnt + 1;
-        end if;
-    end if;
-
+    
     -- Movimiento horizontal
     if left = '1' then
         p_posp <= posp - velp;
     elsif right = '1' then
         p_posp <= posp + velp;
+    end if;
+end process;
+
+accel: process(clk, reset)
+begin
+    if reset = '1' then
+        p_velp    <= to_unsigned(3, 3);    -- velocidad inicial 3
+        cycle_cnt <= to_unsigned(0, 6);    -- contador de ciclos
+    elsif rising_edge(clk) then
+        if left = '1' or right = '1' then
+            -- incremento del contador
+            if cycle_cnt = to_unsigned(59, 6) then  -- cada 60 ciclos
+                cycle_cnt <= to_unsigned(0, 6);     -- reinicia contador
+                if velp < to_unsigned(7, 3) then    -- saturación máxima 7
+                    p_velp <= velp + 1;
+                end if;
+            else
+                cycle_cnt <= cycle_cnt + 1;
+            end if;
+        else
+            -- no se pulsa ningún botón 
+            p_velp <= to_unsigned(3, 3);
+            cycle_cnt <= to_unsigned(0, 6);
+        end if;
     end if;
 end process;
 
