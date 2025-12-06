@@ -45,49 +45,68 @@ end pala;
 
 architecture Behavioral of pala is
 
-signal posp : unsigned(9 downto 0) := "0011111111";
+signal posp, p_posp : unsigned(9 downto 0) := "0011111111";
 signal RGBpala : STD_LOGIC_VECTOR (11 downto 0);
+signal velp : unsigned (1 downto 0);
+-- señales (ejemplo)
+
+signal cycle_cnt  : unsigned(2 downto 0);   -- contador de refresh (0..4)
+
+-- constantes
+constant MAX_POS  : unsigned(9 downto 0) := to_unsigned(448, 10);
+constant ACC_TICKS: integer := 5;  -- cambiar cada 5 ciclos
 
 begin
-process(clk, reset, refresh)
+-- proceso secuencial: actualiza posp, velp y cycle_cnt en cada rising_edge cuando refresh='1'
+sinc: process(clk, reset)
 begin
     if reset = '1' then
-        posp <= to_unsigned(223, 10);  -- posición inicial
-
+        posp      <= to_unsigned(223,10);
+        velp      <= (others => '0');
+        cycle_cnt <= (others => '0');
     elsif rising_edge(clk) then
-        -- asignación por defecto para evitar latches
-        posp <= posp;
-
-        -- original: if refresh = '1' then
         if refresh = '1' then
 
-            -- original: if (left = '1' and posp > 0)
-            if left = '1' then
-                if posp > 0 then
-                    posp <= posp - 1;
-                else
-                    posp <= posp;   -- tope inferior
-                end if;
-
-            -- original: elsif (right = '1' and posp < 480)
-            elsif right = '1' then
-                if posp < 448 then
-                    posp <= posp + 1;
-                else
-                    posp <= posp;   -- tope superior
-                end if;
+            -- Si no hay botón presionado -> reset velocidad y contador
+            if (left = '0') and (right = '0') then
+                velp      <= (others => '0');
+                cycle_cnt <= (others => '0');
 
             else
-                posp <= posp;       -- ni left ni right
+                -- Hay un botón presionado -> incrementar contador
+                if cycle_cnt = to_unsigned(ACC_TICKS-1, cycle_cnt'length) then
+                    -- cuando el contador llega a ACC_TICKS, hacemos un paso de aceleración
+                    if velp < "11" then
+                        velp <= velp + 1;  -- satura en 3 (2 bits)
+                    else
+                        velp <= velp;
+                    end if;
+                    cycle_cnt <= (others => '0'); -- reinicia contador
+                else
+                    cycle_cnt <= cycle_cnt + 1;
+                end if;
             end if;
 
-        else
-            posp <= posp;           -- sin refresh
-        end if;
-    end if;
+            -- Actualización de posición usando la velocidad actual (velp)
+            if left = '1' then
+                -- evitar underflow: comparo con velp convertido
+                if posp > to_unsigned(0, posp'length) + resize(velp, posp'length) then
+                    posp <= posp - resize(velp, posp'length);
+                else
+                    posp <= (others => '0');
+                end if;
+
+            elsif right = '1' then
+                if posp < MAX_POS - resize(velp, posp'length) then
+                    posp <= posp + resize(velp, posp'length);
+                else
+                    posp <= MAX_POS;
+                end if;
+            end if;
+
+        end if; -- refresh
+    end if; -- rising_edge
 end process;
-
-
 
 rgb: process(ejex,ejey,posp)
 	begin
