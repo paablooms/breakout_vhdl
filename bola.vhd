@@ -64,7 +64,7 @@ constant XMAX      : unsigned(9 downto 0) := to_unsigned(WIDTH-1, 10);
 constant YMIN      : unsigned(9 downto 0) := to_unsigned(0, 10);
 constant YMAX      : unsigned(9 downto 0) := to_unsigned(HEIGHT-1, 10);
 
-
+signal pierde_vida_s: std_logic;
 signal posx, p_posx : unsigned(9 downto 0);
 signal posy, p_posy : unsigned(9 downto 0);
 signal velx, p_velx : unsigned(9 downto 0); --cuántos pixeles le vamos a sumar cada vez que se mueve
@@ -204,6 +204,7 @@ U_sprite_bola : sprite_bola
                         p_estado <= REPOSO;
                     else
                         -- TOCA SUELO: pierde una vida
+                        pierde_vida_s <= '1';
                         pierde_vida <= '1';
             
                         -- Recolocamos la bola como al inicio
@@ -275,10 +276,10 @@ vel : process(clk, reset)
 begin
     if reset = '1' then
         cnt    <= "00";
-        p_velx <= "1000";  
-        p_vely <= "1000";
+        p_velx <= "0000001000";  
+        p_vely <= "0000001000";
     elsif rising_edge(clk) then
-        if pierde_vida = '1' then
+        if pierde_vida_s = '1' then
             if cnt = "10" then
                 cnt <= "10";  
             else
@@ -288,14 +289,14 @@ begin
 
         case cnt is
             when "00" =>
-                p_velx <= "1000";  -- 8
-                p_vely <= "1000";
+                p_velx <= "0000001000";  -- 8
+                p_vely <= "0000001000";
             when "01" =>
-                p_velx <= "0101";  -- 5
-                p_vely <= "0101";
+                p_velx <= "0000000101";  -- 5
+                p_vely <= "0000000101";
             when others =>  -- "10"
-                p_velx <= "0011";  -- 3
-                p_vely <= "0011";
+                p_velx <= "0000000011";  -- 3
+                p_vely <= "0000000011";
         end case;
     end if;
 end process;
