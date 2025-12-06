@@ -42,6 +42,15 @@ end bola;
 
 architecture Behavioral of bola is
 
+
+component sprite_bola is
+  port (
+    clka  : in  std_logic;
+    addra : in  std_logic_vector(5 downto 0);
+    douta : out std_logic_vector(11 downto 0)
+  );
+end component;
+
 -- definimos constantes con la altura y ancho de la pantalla
 constant WIDTH  : natural := 512;
 constant HEIGHT : natural := 480;
@@ -63,12 +72,26 @@ signal vely, p_vely : unsigned(9 downto 0); -- cuántos pixeles se desplaza en v
 signal arriba, p_arriba : std_logic; --1 (arriba), 0(abajo)
 signal dcha,   p_dcha   : std_logic; --1 (derecha), 0(izquierda)
 
+-- Señales para la ROM del sprite
+signal sprite_addr : std_logic_vector(5 downto 0);
+signal sprite_rgb  : std_logic_vector(11 downto 0);
+
+
 type tipo_estado is (
      REPOSO, MOVER, CHOQUE_PALA, CHOQUE_BLOQUE, REPOSO_ABSOLUTO
 );
 signal estado, p_estado: tipo_estado;
 
+
+
 begin
+
+U_sprite_bola : sprite_bola
+    port map(
+      clka  => clk,          -- reloj del sistema
+      addra => sprite_addr,  -- dirección del píxel dentro del sprite
+      douta => sprite_rgb    -- color leído de la ROM
+    );
 
 ------------------------------------------------------------------
 -- Proceso secuencial 
@@ -214,10 +237,12 @@ begin
      end process;
 
   ----------------------------------------------------------------
-  -- DIBUJO BOLA (8x8 verde)
+  -- DIBUJO BOLA CON SPRITE (8x8)
   ----------------------------------------------------------------
-  draw_bola : process(ejex, ejey, posx, posy)
+  draw_bola : process(ejex, ejey, posx, posy, sprite_rgb)
     variable x_pix, y_pix : unsigned(9 downto 0);
+    variable dx_full, dy_full : unsigned(9 downto 0);
+    variable dx, dy : unsigned(2 downto 0);  -- 3 bits: 0..7
   begin
     x_pix := unsigned(ejex);
     y_pix := unsigned(ejey);
@@ -226,11 +251,24 @@ begin
        (x_pix <  posx + TAM_BOLA) and
        (y_pix >= posy) and
        (y_pix <  posy + TAM_BOLA) then
-        -- Verde
-        RGBbola <= "000011110000";
+
+        -- resta completa
+        dx_full := x_pix - posx;
+        dy_full := y_pix - posy;
+
+        -- solo los 3 bits LSB (0..7)
+        dx := dx_full(2 downto 0);
+        dy := dy_full(2 downto 0);
+
+        -- dirección del sprite: dy*8 + dx = concatenación de 3+3 bits
+        sprite_addr <= std_logic_vector(dy & dx);
+
+        RGBbola <= sprite_rgb;
     else
-        RGBbola  <= (others => '0');
+        RGBbola <= (others => '0');
     end if;
   end process;
+
+
 
 end Behavioral;
