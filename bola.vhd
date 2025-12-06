@@ -289,14 +289,14 @@ begin
 
         case cnt is
             when "00" =>
-                p_velx <= "0000001000";  -- 8
-                p_vely <= "0000001000";
+                p_velx <= "0000001100";  -- 8
+                p_vely <= "0000001100";
             when "01" =>
-                p_velx <= "0000000101";  -- 5
-                p_vely <= "0000000101";
+                p_velx <= "0000000111";  -- 5
+                p_vely <= "0000000111";
             when others =>  -- "10"
-                p_velx <= "0000000011";  -- 3
-                p_vely <= "0000000011";
+                p_velx <= "0000000110";  -- 3
+                p_vely <= "0000000110";
         end case;
     end if;
 end process;
