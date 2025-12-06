@@ -48,65 +48,62 @@ architecture Behavioral of pala is
 signal posp, p_posp : unsigned(9 downto 0) := "0011111111";
 signal RGBpala : STD_LOGIC_VECTOR (11 downto 0);
 signal velp : unsigned (1 downto 0);
--- señales (ejemplo)
-
-signal cycle_cnt  : unsigned(2 downto 0);   -- contador de refresh (0..4)
-
--- constantes
-constant MAX_POS  : unsigned(9 downto 0) := to_unsigned(448, 10);
-constant ACC_TICKS: integer := 5;  -- cambiar cada 5 ciclos
+signal p_velp    : unsigned(1 downto 0);   -- siguiente velocidad
+signal cycle_cnt : unsigned(2 downto 0);   -- cuenta hasta 4 (5 ciclos)
 
 begin
--- proceso secuencial: actualiza posp, velp y cycle_cnt en cada rising_edge cuando refresh='1'
 sinc: process(clk, reset)
 begin
     if reset = '1' then
         posp      <= to_unsigned(223,10);
         velp      <= (others => '0');
         cycle_cnt <= (others => '0');
+
     elsif rising_edge(clk) then
         if refresh = '1' then
-
-            -- Si no hay botón presionado -> reset velocidad y contador
-            if (left = '0') and (right = '0') then
-                velp      <= (others => '0');
-                cycle_cnt <= (others => '0');
-
-            else
-                -- Hay un botón presionado -> incrementar contador
-                if cycle_cnt = to_unsigned(ACC_TICKS-1, cycle_cnt'length) then
-                    -- cuando el contador llega a ACC_TICKS, hacemos un paso de aceleración
-                    if velp < "11" then
-                        velp <= velp + 1;  -- satura en 3 (2 bits)
-                    else
-                        velp <= velp;
-                    end if;
-                    cycle_cnt <= (others => '0'); -- reinicia contador
-                else
-                    cycle_cnt <= cycle_cnt + 1;
-                end if;
-            end if;
-
-            -- Actualización de posición usando la velocidad actual (velp)
-            if left = '1' then
-                -- evitar underflow: comparo con velp convertido
-                if posp > to_unsigned(0, posp'length) + resize(velp, posp'length) then
-                    posp <= posp - resize(velp, posp'length);
-                else
-                    posp <= (others => '0');
-                end if;
-
-            elsif right = '1' then
-                if posp < MAX_POS - resize(velp, posp'length) then
-                    posp <= posp + resize(velp, posp'length);
-                else
-                    posp <= MAX_POS;
-                end if;
-            end if;
-
-        end if; -- refresh
-    end if; -- rising_edge
+            posp      <= p_posp;
+            velp      <= p_velp;
+            cycle_cnt <= cycle_cnt;  -- actualizado abajo en comb
+        end if;
+    end if;
 end process;
+
+
+comb: process(posp, velp, cycle_cnt, left, right)
+begin
+
+    p_posp    <= posp;
+    p_velp    <= velp;
+
+    if left = '0' and right = '0' then
+        -- si suelto botones → velocidad a 0 y contador a 0
+        p_velp       <= (others => '0');
+        cycle_cnt    <= (others => '0');
+
+    else
+        -- mantengo pulsado → incrementar contador
+        if cycle_cnt = "100" then   -- valor 4 (ciclo número 5)
+            cycle_cnt <= (others => '0');   -- reinicia para la próxima aceleración
+
+            -- acelerar con saturación a "11"
+            if velp < "11" then
+                p_velp <= velp + 1;
+            else
+                p_velp <= velp;
+            end if;
+
+        else
+            cycle_cnt <= cycle_cnt + 1;
+        end if;
+    end if;
+
+    if left = '1' then
+        p_posp <= posp - velp;
+    elsif right = '1' then
+        p_posp <= posp + velp;
+    end if;
+end process;
+
 
 rgb: process(ejex,ejey,posp)
 	begin
