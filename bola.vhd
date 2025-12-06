@@ -76,6 +76,8 @@ signal dcha,   p_dcha   : std_logic; --1 (derecha), 0(izquierda)
 signal sprite_addr : std_logic_vector(5 downto 0);
 signal sprite_rgb  : std_logic_vector(11 downto 0);
 
+signal cnt : unsigned(1 downto 0);  -- contador 0..2
+signal p_cnt : unsigned(1 downto 0);
 
 type tipo_estado is (
      REPOSO, MOVER, CHOQUE_PALA, CHOQUE_BLOQUE, REPOSO_ABSOLUTO
