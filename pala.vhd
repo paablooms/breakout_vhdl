@@ -70,36 +70,31 @@ end process;
 
 comb: process(posp, velp, cycle_cnt, left, right)
 begin
+    p_posp <= posp;
+    p_velp <= velp;
 
-    p_posp    <= posp;
-    p_velp    <= velp;
-
+    -- Si no pulsas, solo reinicia el contador, no la velocidad
     if left = '0' and right = '0' then
-        -- si suelto botones → velocidad a 0 y contador a 0
-        p_velp       <= (others => '0');
-        cycle_cnt    <= (others => '0');
-
+        cycle_cnt <= (others => '0');  -- reinicia contador
     else
-        -- mantengo pulsado → incrementar contador
-        if cycle_cnt = "111011" then   -- 59 = ciclo 60
-            cycle_cnt <= (others => '0');   -- reinicia para el próximo ciclo
-            if velp < "111" then             -- límite máximo 7
+        -- Mantengo pulsado → incrementar contador
+        if cycle_cnt = "111011" then  -- 59 = ciclo 60
+            cycle_cnt <= (others => '0');  -- reinicia contador
+            if velp < "111" then           -- saturación a 7
                 p_velp <= velp + 1;
-            else
-                p_velp <= velp;
             end if;
         else
             cycle_cnt <= cycle_cnt + 1;
         end if;
     end if;
 
+    -- Movimiento horizontal
     if left = '1' then
         p_posp <= posp - velp;
     elsif right = '1' then
         p_posp <= posp + velp;
     end if;
 end process;
-
 
 rgb: process(ejex,ejey,posp)
 	begin
