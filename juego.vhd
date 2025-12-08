@@ -112,6 +112,7 @@ end component;
 
 component draw_bloque is
     Port (
+    clk: in std_logic;
     data_out_B: in std_logic;  --bit leído de la RAM que te dice si hay bloque ahí o no
     ejex: in std_logic_vector(9 downto 0); --coordenada x del píxel actual
     ejey: in std_logic_vector(9 downto 0); --coordenada y del píxel actual
@@ -143,26 +144,47 @@ component blk_mem_gen_0 is
         );
 end component;
 
-component game_over_text is
-  Port (
-    ejex     : in  std_logic_vector(9 downto 0);
-    ejey     : in  std_logic_vector(9 downto 0);
-    enable   : in  std_logic;
-    RGB_text : out std_logic_vector(11 downto 0)
+component sprite_game_over is
+  port (
+    clka  : in  std_logic;
+    addra : in  std_logic_vector(16 downto 0);  -- 17 bits
+    douta : out std_logic_vector(11 downto 0)   -- 12 bits RGB
   );
 end component;
+
+component blk_mem_gen_1 is
+  port (
+    clka  : in  std_logic;
+    addra : in  std_logic_vector(7 downto 0);
+    douta : out std_logic_vector(11 downto 0)
+  );
+end component;
+
+
 
 component vidas_hud is
   Port (
     ejex      : in  std_logic_vector(9 downto 0);
     ejey      : in  std_logic_vector(9 downto 0);
-    num_vidas : in  unsigned(1 downto 0);
+    num_vidas : in  unsigned(1 downto 0);              -- 0..3
+
+    -- interfaz hacia la memoria del sprite de vida
+    vida_rgb  : in  std_logic_vector(11 downto 0);     -- dato leído de la BRAM
+    vida_addr : out std_logic_vector(7 downto 0);      -- dirección 0..255
+
     RGBvidas  : out std_logic_vector(11 downto 0)
   );
 end component;
 
 signal RGBvidas_s : std_logic_vector(11 downto 0);
 
+signal vida_addr_s : std_logic_vector(7 downto 0);
+signal vida_rgb_s  : std_logic_vector(11 downto 0);
+
+
+-- señales para el sprite de game over 
+signal go_addr : std_logic_vector(16 downto 0);
+signal go_rgb  : std_logic_vector(11 downto 0);
 
 
 -- señales para el sistema de game over y pérdida de vidas
@@ -293,6 +315,7 @@ U5 : control_juego
         
   U7: draw_bloque
     Port map(
+        clk => clk,
         ejex => ex,
         ejey => ey,
         data_out_B => data_out_B_s,
@@ -311,21 +334,31 @@ U5 : control_juego
         doutb => doutb_v
         );
         
-    U9 : game_over_text
-    port map (
-        ejex     => ex,
-        ejey     => ey,
-        enable   => game_over_s,
-        RGB_text => RGB_gameover
+    U_GO : sprite_game_over
+      port map (
+        clka  => clk,
+        addra => go_addr,
+        douta => go_rgb
       );
+
       
-      U10 : vidas_hud
+      U_VIDAS_ROM : blk_mem_gen_1
+  port map (
+    clka  => clk,
+    addra => vida_addr_s,
+    douta => vida_rgb_s
+  );
+
+     U10 : vidas_hud
   port map(
     ejex      => ex,
     ejey      => ey,
-    num_vidas => vidas_reg,
+    num_vidas => vidas_reg,   -- tu contador de vidas
+    vida_rgb  => vida_rgb_s,  -- datos desde la BRAM del sprite
+    vida_addr => vida_addr_s, -- dirección hacia la BRAM
     RGBvidas  => RGBvidas_s
   );
+
 
 
 -- process que va a controlar todo el tema de las vidas y la activación de 
@@ -333,7 +366,7 @@ U5 : control_juego
  process(clk, reset)
 begin
     if reset = '1' then
-        vidas_reg   <= to_unsigned(3, 2);  -- tenemos 3 vidas al principio
+        vidas_reg   <= to_unsigned(3, 2);  -- 3 vidas al inicio
         game_over_s <= '0';
     elsif rising_edge(clk) then
         -- si ya estamos en GAME OVER, nos quedamos ahí
@@ -346,7 +379,7 @@ begin
                     vidas_reg <= vidas_reg - 1;
                 end if;
 
-                -- si se ha quedado en 0 vidas que pase a GAME OVER
+                -- si se ha quedado en 0 vidas → GAME OVER
                 if vidas_reg = to_unsigned(1,2) then
                     -- al decrementar pasará a 0
                     game_over_s <= '1';
@@ -355,24 +388,63 @@ begin
         end if;
     end if;
 end process;
+
        
-    
-        
-  process(RGB_in_s, RGBfondo,RGB_gameover,RGBvidas_s, game_over_s)
+-- Dibujo de la imagen GAME OVER (sprite 320x240 centrado)
+gameover_draw : process(ejex, ejey, game_over_s, go_rgb)
+  variable x, y   : unsigned(9 downto 0);
+  variable lx, ly : unsigned(9 downto 0);      -- coords locales 0..319 / 0..239
+  variable ly17   : unsigned(16 downto 0);
+  variable addr   : unsigned(16 downto 0);
 begin
-    if game_over_s = '1' then
-        -- PANTALLA GAME OVER (por ahora, rojo sólido)
-        RGBin <= RGB_gameover;  -- por ejemplo, rojo
+  -- por defecto, nada
+  RGB_gameover <= (others => '0');
+  go_addr      <= (others => '0');
+
+  if game_over_s = '1' then
+    x := unsigned(ejex);
+    y := unsigned(ejey);
+
+    -- colocamos la imagen 320x240 centrada:
+    --  X: 160..479  (ancho 320)
+    --  Y: 120..359  (alto 240)
+    if (x >= to_unsigned(160,10)) and (x < to_unsigned(480,10)) and
+       (y >= to_unsigned(120,10)) and (y < to_unsigned(360,10)) then
+
+      -- coordenadas locales dentro de la imagen
+      lx := x - to_unsigned(160,10);  -- 0..319
+      ly := y - to_unsigned(120,10);  -- 0..239
+
+      -- dirección = ly * 320 + lx
+      -- 320 = 256 + 64 => (ly<<8) + (ly<<6)
+      ly17 := resize(ly, 17);
+      addr := (ly17 sll 8) + (ly17 sll 6) + resize(lx, 17);
+
+      go_addr      <= std_logic_vector(addr);
+      RGB_gameover <= go_rgb;  -- color leído 
+
     else
-       -- esto hay que hacerlo así porque si no no se pueden ver las vidas, porque el RGBfondo se impone 
-       -- siempre y dibuja blanco
-       if RGBvidas_s /= CERO_RGB then
-            RGBin <= RGBvidas_s;       -- el HUD VIDAS se impone
-        else
-            RGBin <= RGBfondo or RGB_in_s;         -- si VIDAS no dibuja nada, usa el juego normal
-        end if;
+      RGB_gameover <= (others => '1');
     end if;
+  end if;
 end process;
+
+        
+process(RGB_in_s, RGBfondo, RGB_gameover, RGBvidas_s, game_over_s)
+begin
+  if game_over_s = '1' then
+    -- Pantalla de GAME OVER (imagen de la ROM)
+    RGBin <= RGB_gameover;
+  else
+    -- HUD de vidas tiene prioridad
+    if RGBvidas_s /= CERO_RGB then
+      RGBin <= RGBvidas_s;
+    else
+      RGBin <= RGBfondo or RGB_in_s;
+    end if;
+  end if;
+end process;
+
 
 
 end Behavioral;
