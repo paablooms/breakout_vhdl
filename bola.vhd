@@ -110,7 +110,7 @@ begin
         -- valores iniciales de la bola
         estado  <= REPOSO_ABSOLUTO;
         posx    <= to_unsigned(256,10); -- centro aprox
-        posy    <= to_unsigned(450,10);
+        posy    <= to_unsigned(440,10);
         arriba  <= '1';
         dcha    <= '1';
       else
@@ -128,7 +128,7 @@ begin
   -- PROCESO COMBINACIONAL (FSM de movimiento/colisiones)
   -----------------------------------------------------------
   process(estado, left, right, posx, posy, arriba, dcha,
-          valid_bola, data_bola, refresh, velx, vely, ejex, ejey)
+          valid_bola, data_bola, refresh, velx, vely, ejex, ejey, pierde_vida_s)
           
     -- VARIABLES LOCALES
     variable ref_bloque_x : unsigned(4 downto 0);
@@ -137,6 +137,10 @@ begin
     variable choque_der   : std_logic;
     variable choque_arr   : std_logic;
     variable choque_ab    : std_logic;
+    
+    variable rebote_h     : std_logic;  -- hay rebote horizontal
+    variable rebote_v     : std_logic;  -- hay rebote signal
+    
   begin 
     
     -- VALORES POR DEFECTO
@@ -209,7 +213,7 @@ begin
             
             -- Recolocamos la bola como al inicio
             p_posx   <= to_unsigned(256,10);
-            p_posy   <= to_unsigned(450,10);
+            p_posy   <= to_unsigned(440,10);
             p_arriba <= '1';
             p_dcha   <= '1';
             
@@ -222,61 +226,95 @@ begin
           p_estado <= REPOSO;
         end if;
                 
+ -------------------------------------------------
+      -- *** CÓDIGO MODIFICADO: CHOQUE_BLOQUE ***
+      -------------------------------------------------
       when CHOQUE_BLOQUE =>
 
-            -- Coordenadas locales dentro del bloque (32x16)
-            ref_bloque_x := unsigned(ejex(4 downto 0));  -- 0..31 dentro del bloque
-            ref_bloque_y := unsigned(ejey(3 downto 0));  -- 0..15
+        -- Coordenadas locales dentro del bloque (32x16).
+        ref_bloque_x := unsigned(ejex(4 downto 0));  -- 0 a 31 dentro del bloque
+        ref_bloque_y := unsigned(ejey(3 downto 0));  -- 0 a 15
 
-            -- Inicializamos las "flags" de choque
-            choque_izq := '0';
-            choque_der := '0';
-            choque_arr := '0';
-            choque_ab  := '0';
+        -- Inicializamos las "flags" de choque
+        choque_izq := '0';
+        choque_der := '0';
+        choque_arr := '0';
+        choque_ab  := '0';
 
-            -- ¿Está tocando el borde izquierdo o derecho del bloque?
-            if ref_bloque_x = to_unsigned(0,5) then
-                choque_izq := '1';
-            elsif ref_bloque_x = to_unsigned(31,5) then
-                choque_der := '1';
-            end if;
+        -- ¿Está tocando el borde izquierdo o derecho del bloque?
+        if ref_bloque_x = to_unsigned(0,5) then
+          choque_izq := '1';
+        elsif ref_bloque_x = to_unsigned(31,5) then
+          choque_der := '1';
+        end if;
 
-            -- ¿Está tocando el borde superior o inferior del bloque?
-            if ref_bloque_y = to_unsigned(0,4) then
-                choque_arr := '1';
-            elsif ref_bloque_y = to_unsigned(15,4) then
-                choque_ab := '1';
-            end if;
+        -- ¿Está tocando el borde superior o inferior del bloque?
+        if ref_bloque_y = to_unsigned(0,4) then
+          choque_arr := '1';
+        elsif ref_bloque_y = to_unsigned(15,4) then
+          choque_ab := '1';
+        end if;
 
-            ----------------------------------------------------------------
-            -- Rebote horizontal (si pegó en los lados izquierdo/derecho)
-            ----------------------------------------------------------------
-            if choque_izq = '1' then
-                -- venía desde la izquierda, rebota hacia la derecha
-                p_dcha <= '1';                  -- ahora va a la derecha
-                p_posx <= posx + velx;          -- lo sacamos un poco
-            elsif choque_der = '1' then
-                -- venía desde la derecha, rebota hacia la izquierda
-                p_dcha <= '0';
-                p_posx <= posx - velx;
-            end if;
+        -- Indicadores de si hay rebote horizontal / vertical
+        if (choque_izq = '1') or (choque_der = '1') then
+          rebote_h := '1';
+        else
+          rebote_h := '0';
+        end if;
+
+        if (choque_arr = '1') or (choque_ab = '1') then
+          rebote_v := '1';
+        else
+          rebote_v := '0';
+        end if;
+
+        ----------------------------------------------------------------
+        -- Rebote horizontal (solo si pegó en lados izq/der)
+        ----------------------------------------------------------------
+        if rebote_h = '1' then
+          if choque_izq = '1' then
+            -- venía desde la izquierda, rebota hacia la derecha
+            p_dcha <= '1';
+            p_posx <= posx + velx;  -- lo sacamos un poco del bloque
+          elsif choque_der = '1' then
+            -- venía desde la derecha, rebota hacia la izquierda
+            p_dcha <= '0';
+            p_posx <= posx - velx;
+          end if;
+        end if;
             
-            ----------------------------------------------------------------
-            -- Rebote vertical (si pegó arriba/abajo, o simplemente inviertes
-            -- siempre Y como tenías antes)
-            ----------------------------------------------------------------
-            if arriba = '1' then
-                -- venía subiendo, rebota hacia abajo
-                p_arriba <= '0';
-                p_posy   <= posy + vely;  
-            else
-                -- venía bajando, rebota hacia arriba
-                p_arriba <= '1';
-                p_posy   <= posy - vely;   
-            end if;
+        ----------------------------------------------------------------
+        -- Rebote vertical (solo si pegó arriba/abajo)
+        ----------------------------------------------------------------
+        if rebote_v = '1' then
+          if arriba = '1' then
+            -- venía subiendo, rebota hacia abajo
+            p_arriba <= '0';
+            p_posy   <= posy + vely;
+          else
+            -- venía bajando, rebota hacia arriba
+            p_arriba <= '1';
+            p_posy   <= posy - vely;
+          end if;
+        end if;
 
-            p_estado <= REPOSO;   
-            
+        ----------------------------------------------------------------
+        -- Si por algún motivo no hemos detectado ni lateral ni vertical
+        -- (por ejemplo, el contacto está "en el medio"), forzamos al menos
+        -- un rebote vertical para que no atraviese el bloque.
+        ----------------------------------------------------------------
+        if (rebote_h = '0') and (rebote_v = '0') then
+          if arriba = '1' then
+            p_arriba <= '0';
+            p_posy   <= posy + vely;
+          else
+            p_arriba <= '1';
+            p_posy   <= posy - vely;
+          end if;
+        end if;
+
+        -- Después de procesar el choque, volvemos a REPOSO
+        p_estado <= REPOSO;
       when CHOQUE_PALA =>  
         ready_bola <= '0';
         p_arriba   <= '1';    -- después de la pala va hacia arriba      
