@@ -9,442 +9,523 @@
 -- Target Devices: 
 -- Tool Versions: 
 -- Description: 
--- 
--- Dependencies: 
--- 
--- Revision:
--- Revision 0.01 - File Created
--- Additional Comments:
--- 
+--   - Instancia:
+--       * fondo       → fondo de pantalla
+--       * pala        → la barra que controla el jugador
+--       * bola        → la pelota que rebota
+--       * bloques     → RAM + lógica para dibujarlos y borrarlos
+--       * control_juego → detecta colisiones entre bola/pala/bloques
+--       * HUD vidas   → dibuja las vidas restantes
+--       * game over   → dibuja la pantalla de GAME OVER
+--
+--   - Decide finalmente qué RGB sale por pantalla (RGBin) en cada píxel.
+--   - Gestiona las vidas y el estado de GAME OVER.
+--
 ----------------------------------------------------------------------------------
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
 use IEEE.NUMERIC_STD.ALL;
 
--- Uncomment the following library declaration if instantiating
--- any Xilinx leaf cells in this code.
 --library UNISIM;
 --use UNISIM.VComponents.all;
 
+----------------------------------------------------------------------------------
+-- ENTIDAD
+----------------------------------------------------------------------------------
 entity juego is
-    Generic(
-           posx : unsigned(9 downto 0) := to_unsigned(455,10);
-           posy : unsigned(9 downto 0) := to_unsigned(256,10)
-           );
-    Port ( clk,reset : in std_logic;
-           left,right : in STD_LOGIC;
-           ejex,ejey : in STD_LOGIC_VECTOR(9 downto 0);
-           refresh : in STD_LOGIC;
-           RGBin : out STD_LOGIC_VECTOR (11 downto 0));
+  Generic(
+    posx : unsigned(9 downto 0) := to_unsigned(455,10);
+    posy : unsigned(9 downto 0) := to_unsigned(256,10)
+  );
+  Port (
+    clk, reset : in  std_logic;
+    left, right: in  std_logic;
+    ejex, ejey : in  std_logic_vector(9 downto 0);      -- coordenadas del píxel actual
+    refresh    : in  std_logic;                         -- pulso de refresco (para bola/pala)
+    RGBin      : out std_logic_vector(11 downto 0)      -- color final hacia VGA
+  );
 end juego;
 
+----------------------------------------------------------------------------------
+-- ARQUITECTURA
+----------------------------------------------------------------------------------
 architecture Behavioral of juego is
-constant CERO_RGB : std_logic_vector(11 downto 0) := (others => '0');
 
---constant posx : unsigned ( 9 downto 0) := to_unsigned(455,10);
---constant posy : unsigned ( 9 downto 0) := to_unsigned(256,10);
-component bola is
-      Port (
-        clk: in std_logic;
-        reset: in std_logic;
-        refresh: in std_logic;
-        left,right: in std_logic;
-        ejex: in std_logic_vector(9 downto 0); --coordenada x de la bola
-        ejey: in std_logic_vector(9 downto 0); -- coordenada y de la bola
-        data_bola: in std_logic_vector(3 downto 0);
-        valid_bola: in std_logic;
-        ready_bola: out std_logic;
-        pierde_vida: out std_logic;
-        RGBbola: out std_logic_vector(11 downto 0)
-        );
-end component;
+  -------------------------------------------------------------------
+  -- CONSTANTES
+  -------------------------------------------------------------------
+  constant CERO_RGB : std_logic_vector(11 downto 0) := (others => '0');
 
-component control_juego is
-Port (
-    clk,reset : in std_logic;
-    ejex, ejey : in std_logic_vector(9 downto 0);
-    
--- RGBs de entrada (son los que tenemos que comparar)
-    RGB_bola   : in  std_logic_vector(11 downto 0);
-    RGB_bloque : in  std_logic_vector(11 downto 0);
-    RGB_pala   : in  std_logic_vector(11 downto 0);
+  --constant posx : unsigned ( 9 downto 0) := to_unsigned(455,10);
+  --constant posy : unsigned ( 9 downto 0) := to_unsigned(256,10);
 
-    -- Intercambio con bloques
-    data_bloque  : out std_logic_vector(7 downto 0);
-    valid_bloque : out std_logic;
-    ready_bloque : in  std_logic;
+  -------------------------------------------------------------------
+  -- DECLARACIÓN DE COMPONENTES (submódulos)
+  -------------------------------------------------------------------
 
-    -- 
-    RGB_in     : out std_logic_vector(11 downto 0);
-
-    -- Interfaz con "bola"
-    data_bola  : out std_logic_vector(3 downto 0);
-    valid_bola : out std_logic;
-    ready_bola : in  std_logic
-      );
-end component;
-
-component pala is
-    Port ( clk : in std_logic;
-           reset : in std_logic;
-           left : in STD_LOGIC;
-           right : in STD_LOGIC;
-           ejex : in STD_LOGIC_VECTOR(9 downto 0);
-           ejey : in STD_LOGIC_VECTOR(9 downto 0);
-           refresh : in STD_LOGIC;
-           pos_p : out std_logic_vector(9 downto 0);
-           RGBin : out STD_LOGIC_VECTOR (11 downto 0));
-end component;
-
-component fondo is
-    Generic(
-           posx : unsigned(9 downto 0) := to_unsigned(455,10);
-           posy : unsigned(9 downto 0) := to_unsigned(256,10)
-           );
-    Port ( ejex : in STD_LOGIC_VECTOR(9 downto 0);
-           ejey : in STD_LOGIC_VECTOR(9 downto 0);
-           RGBin : out STD_LOGIC_VECTOR (11 downto 0));
-end component;
-
-component draw_bloque is
+  -- Bola (lógica de movimiento + dibujo)
+  component bola is
     Port (
-    clk: in std_logic;
-    data_out_B: in std_logic;  --bit leído de la RAM que te dice si hay bloque ahí o no
-    ejex: in std_logic_vector(9 downto 0); --coordenada x del píxel actual
-    ejey: in std_logic_vector(9 downto 0); --coordenada y del píxel actual
-    ADDR_B: out std_logic_vector(7 downto 0); --dirección en memoria
-    RGB_bloque: out std_logic_vector(11 downto 0)); --ccolor del bloque
-end component;
+      clk        : in  std_logic;
+      reset      : in  std_logic;
+      refresh    : in  std_logic;
+      left       : in  std_logic;
+      right      : in  std_logic;
+      ejex       : in  std_logic_vector(9 downto 0); -- coordenada x del píxel
+      ejey       : in  std_logic_vector(9 downto 0); -- coordenada y del píxel
+      data_bola  : in  std_logic_vector(3 downto 0);
+      valid_bola : in  std_logic;
+      ready_bola : out std_logic;
+      pierde_vida: out std_logic;
+      RGBbola    : out std_logic_vector(11 downto 0)
+    );
+  end component;
 
-component borrar_bloque is 
-     Port (
-    clk, reset   : in  std_logic;
-    data_bloque  : in  std_logic_vector(7 downto 0);  -- dirección del bloque
-    valid_bloque : in  std_logic;  
-    ready_bloque : out std_logic; 
-    WR_A         : out std_logic;                     -- habilita escritura
-    ADDR_A       : out std_logic_vector(7 downto 0);  -- dirección del bloque
-    data_in_A    : out std_logic                      -- '0' = borrar bloque
-  );
-end component;
+  -- Control del juego (colisiones + multiplexado simple de colores)
+  component control_juego is
+    Port (
+      clk, reset : in  std_logic;
+      ejex, ejey : in  std_logic_vector(9 downto 0);
 
-component blk_mem_gen_0 is
+      -- RGBs de entrada (para comparar qué hay en cada píxel)
+      RGB_bola   : in  std_logic_vector(11 downto 0);
+      RGB_bloque : in  std_logic_vector(11 downto 0);
+      RGB_pala   : in  std_logic_vector(11 downto 0);
+
+      -- Intercambio con bloques (para borrar)
+      data_bloque  : out std_logic_vector(7 downto 0);
+      valid_bloque : out std_logic;
+      ready_bloque : in  std_logic;
+
+      -- RGB combinado que va hacia el top
+      RGB_in       : out std_logic_vector(11 downto 0);
+
+      -- Interfaz con "bola" (eventos de choque)
+      data_bola  : out std_logic_vector(3 downto 0);
+      valid_bola : out std_logic;
+      ready_bola : in  std_logic
+    );
+  end component;
+
+  -- Pala del jugador
+  component pala is
+    Port (
+      clk     : in  std_logic;
+      reset   : in  std_logic;
+      left    : in  std_logic;
+      right   : in  std_logic;
+      ejex    : in  std_logic_vector(9 downto 0);
+      ejey    : in  std_logic_vector(9 downto 0);
+      refresh : in  std_logic;
+      pos_p   : out std_logic_vector(9 downto 0);          -- posición horizontal de la pala
+      RGBin   : out std_logic_vector(11 downto 0)          -- color de la pala
+    );
+  end component;
+
+  -- Fondo de pantalla
+  component fondo is
+    Generic(
+      posx : unsigned(9 downto 0) := to_unsigned(455,10);
+      posy : unsigned(9 downto 0) := to_unsigned(256,10)
+    );
+    Port (
+      ejex : in  std_logic_vector(9 downto 0);
+      ejey : in  std_logic_vector(9 downto 0);
+      RGBin: out std_logic_vector(11 downto 0)
+    );
+  end component;
+
+  -- Dibujo de bloques a partir de una RAM de 1 bit por celda
+  component draw_bloque is
+    Port (
+      clk        : in  std_logic;
+      data_out_B : in  std_logic;                    -- bit leído de la RAM (hay/no hay bloque)
+      ejex       : in  std_logic_vector(9 downto 0); -- coordenada x del píxel
+      ejey       : in  std_logic_vector(9 downto 0); -- coordenada y del píxel
+      ADDR_B     : out std_logic_vector(7 downto 0); -- dirección en memoria
+      RGB_bloque : out std_logic_vector(11 downto 0) -- color del bloque
+    );
+  end component;
+
+  -- Lógica que se encarga de "borrar" un bloque en la RAM
+  component borrar_bloque is
+    Port (
+      clk, reset   : in  std_logic;
+      data_bloque  : in  std_logic_vector(7 downto 0);  -- dirección del bloque
+      valid_bloque : in  std_logic;
+      ready_bloque : out std_logic;
+      WR_A         : out std_logic;                     -- habilita escritura
+      ADDR_A       : out std_logic_vector(7 downto 0);  -- dirección del bloque
+      data_in_A    : out std_logic                      -- '0' = borrar bloque
+    );
+  end component;
+
+  -- RAM de bloques (bit por celda)
+  component blk_mem_gen_0 is
     Port(
-        clka : in std_logic;
-        wea  : in std_logic_vector(0 downto 0);
-        addra: in std_logic_vector(7 downto 0);
-        dina : in std_logic_vector(0 downto 0);
-        clkb : in std_logic;
-        addrb: in std_logic_vector(7 downto 0);
-        doutb: out std_logic_vector(0 downto 0)
-        );
-end component;
+      clka  : in  std_logic;
+      wea   : in  std_logic_vector(0 downto 0);
+      addra : in  std_logic_vector(7 downto 0);
+      dina  : in  std_logic_vector(0 downto 0);
+      clkb  : in  std_logic;
+      addrb : in  std_logic_vector(7 downto 0);
+      doutb : out std_logic_vector(0 downto 0)
+    );
+  end component;
 
-component sprite_game_over is
-  port (
-    clka  : in  std_logic;
-    addra : in  std_logic_vector(16 downto 0);  -- 17 bits
-    douta : out std_logic_vector(11 downto 0)   -- 12 bits RGB
-  );
-end component;
+  -- ROM con el sprite de GAME OVER (320x240 → 17 bits de dirección)
+  component sprite_game_over is
+    port (
+      clka  : in  std_logic;
+      addra : in  std_logic_vector(16 downto 0);
+      douta : out std_logic_vector(11 downto 0)
+    );
+  end component;
 
-component blk_mem_gen_1 is
-  port (
-    clka  : in  std_logic;
-    addra : in  std_logic_vector(7 downto 0);
-    douta : out std_logic_vector(11 downto 0)
-  );
-end component;
+  -- ROM para el sprite de “vida” (HUD)
+  component blk_mem_gen_1 is
+    port (
+      clka  : in  std_logic;
+      addra : in  std_logic_vector(7 downto 0);
+      douta : out std_logic_vector(11 downto 0)
+    );
+  end component;
 
+  -- HUD de vidas
+  component vidas_hud is
+    Port (
+      ejex      : in  std_logic_vector(9 downto 0);
+      ejey      : in  std_logic_vector(9 downto 0);
+      num_vidas : in  unsigned(1 downto 0);              -- 0..3
 
+      -- Interfaz hacia la memoria del sprite de vida
+      vida_rgb  : in  std_logic_vector(11 downto 0);     -- dato leído de la BRAM
+      vida_addr : out std_logic_vector(7 downto 0);      -- dirección 0..255
 
-component vidas_hud is
-  Port (
-    ejex      : in  std_logic_vector(9 downto 0);
-    ejey      : in  std_logic_vector(9 downto 0);
-    num_vidas : in  unsigned(1 downto 0);              -- 0..3
+      RGBvidas  : out std_logic_vector(11 downto 0)
+    );
+  end component;
 
-    -- interfaz hacia la memoria del sprite de vida
-    vida_rgb  : in  std_logic_vector(11 downto 0);     -- dato leído de la BRAM
-    vida_addr : out std_logic_vector(7 downto 0);      -- dirección 0..255
+  -------------------------------------------------------------------
+  -- SEÑALES INTERNAS
+  -------------------------------------------------------------------
 
-    RGBvidas  : out std_logic_vector(11 downto 0)
-  );
-end component;
+  -- HUD de vidas
+  signal RGBvidas_s   : std_logic_vector(11 downto 0);
+  signal vida_addr_s  : std_logic_vector(7 downto 0);
+  signal vida_rgb_s   : std_logic_vector(11 downto 0);
 
-signal RGBvidas_s : std_logic_vector(11 downto 0);
+  -- Game over (ROM + control)
+  signal go_addr      : std_logic_vector(16 downto 0);
+  signal go_rgb       : std_logic_vector(11 downto 0);
 
-signal vida_addr_s : std_logic_vector(7 downto 0);
-signal vida_rgb_s  : std_logic_vector(11 downto 0);
+  -- Sistema de gestión de vidas y estado GAME OVER
+  signal RGB_gameover : std_logic_vector(11 downto 0);
+  signal vidas_reg    : unsigned(1 downto 0);      -- (3 vidas)
+  signal pierde_vida_s: std_logic;
+  signal game_over_s  : std_logic;
 
+  -- Versiones "gateadas" de los controles, para congelar cuando hay GAME OVER
+  signal left_g, right_g       : std_logic;
+  signal refresh_bola_g        : std_logic;
 
--- señales para el sprite de game over 
-signal go_addr : std_logic_vector(16 downto 0);
-signal go_rgb  : std_logic_vector(11 downto 0);
+  -- Coordenadas y otros
+  signal posp   : unsigned(9 downto 0) := "0011111111"; 
+  signal ex, ey : std_logic_vector(9 downto 0);         -- copia local de ejex, ejey
 
+  -- RGB de cada capa
+  signal RGBfondo  : std_logic_vector(11 downto 0);
+  signal RGBpala   : std_logic_vector(11 downto 0);
+  signal RGBbola   : std_logic_vector(11 downto 0);
+  signal RGBbloque : std_logic_vector(11 downto 0);
 
--- señales para el sistema de game over y pérdida de vidas
-signal RGB_gameover : std_logic_vector(11 downto 0);
-signal vidas_reg      : unsigned(1 downto 0);  -- 0..3 (3 vidas)
-signal pierde_vida_s  : std_logic;
-signal game_over_s : std_logic;
-signal left_g, right_g : std_logic;
-signal refresh_bola_g : std_logic;
+  signal ref   : std_logic;
+  signal posp_s: std_logic_vector(9 downto 0);   -- posición de la pala desde su módulo
 
+  -- Interfaz entre control_juego y bola
+  signal data_bola_s    : std_logic_vector(3 downto 0);
+  signal valid_bola_s   : std_logic;
+  signal ready_bola_s   : std_logic;
 
-signal posp : unsigned(9 downto 0) := "0011111111";
-signal ex, ey : std_logic_vector(9 downto 0);
-signal RGBfondo, RGBpala, RGBbola, RGBbloque : std_logic_vector(11 downto 0);
-signal ref : std_logic;
-signal posp_s : std_logic_vector(9 downto 0);
+  -- Interfaz entre control_juego y borrar_bloque / RAM
+  signal data_bloque_s  : std_logic_vector(7 downto 0);
+  signal valid_bloque_s : std_logic;
+  signal ready_bloque_s : std_logic;
 
--- señales que salen de control_juego
-signal data_bola_s    : std_logic_vector(3 downto 0);
-signal valid_bola_s   : std_logic;
-signal ready_bola_s   : std_logic;
+  -- RGB combinado desde control_juego
+  signal RGB_in_s       : std_logic_vector(11 downto 0);
 
-signal data_bloque_s  : std_logic_vector(7 downto 0);
-signal valid_bloque_s : std_logic;
-signal ready_bloque_s : std_logic;
-signal RGB_in_s : std_logic_vector(11 downto 0);
+  -- Señales que salen de borrar_bloque hacia la RAM
+  signal data_in_A_s : std_logic;
+  signal ADDR_A_s    : std_logic_vector(7 downto 0);
+  signal WR_A_s      : std_logic;
 
--- señales que salen del borrar_bloque
-signal data_in_A_s : std_logic;
-signal ADDR_A_s : std_logic_vector(7 downto 0);
-signal WR_A_s : std_logic;
+  -- Señales de la memoria de bloques
+  signal data_out_A_s : std_logic;                 -- no usada en este top
+  signal data_out_B_s : std_logic;
 
--- señales que salen de la memoria
-signal data_out_A_s: std_logic;
-signal data_out_B_s: std_logic;
+  -- Señal desde draw_bloques a la RAM (dirección de lectura)
+  signal ADDR_B_s     : std_logic_vector(7 downto 0);
 
--- señales que salen de draw_bloques
-signal ADDR_B_s: std_logic_vector(7 downto 0);
-
-signal wea_v, dina_v, doutb_v : std_logic_vector(0 downto 0);
+  -- Adaptadores de 1 bit a std_logic_vector(0 downto 0) para la RAM
+  signal wea_v, dina_v, doutb_v : std_logic_vector(0 downto 0);
 
 begin
 
-  --hacemos que todo se paralice si está game over (por si acaso)  
-  left_g        <= left  when game_over_s = '0' else '0';
-  right_g       <= right when game_over_s = '0' else '0';
-  refresh_bola_g <= ref  when game_over_s = '0' else '0';
-    
+  -------------------------------------------------------------------
+  -- “GATEO” DE CONTROLES EN GAME OVER
+  -- Cuando game_over_s = '1', se congelan los inputs de movimiento
+  -- y el refresh de la bola, para que todo quede quieto.
+  -------------------------------------------------------------------
+  left_g         <= left   when game_over_s = '0' else '0';
+  right_g        <= right  when game_over_s = '0' else '0';
+  refresh_bola_g <= ref    when game_over_s = '0' else '0';
+
   ex  <= ejex;
   ey  <= ejey;
   ref <= refresh;
-  
-  wea_v(0) <= WR_A_s;
-  dina_v(0) <= data_in_A_s;
-  data_out_B_s <= doutb_v(0);
 
-U1 : fondo
-Port map(
-    ejex => ex,
-    ejey => ey,
-    RGBin => RGBfondo
-);
+  wea_v(0)      <= WR_A_s;
+  dina_v(0)     <= data_in_A_s;
+  data_out_B_s  <= doutb_v(0);
 
-U3 : pala
+  -------------------------------------------------------------------
+  -- INSTANCIAS
+  -------------------------------------------------------------------
+
+  -- Fondo de pantalla
+  U1 : fondo
     Port map(
-        clk => clk,
-        reset => reset,
-        left    => left_g,   -- Señal izquierda
-        right   => right_g,   -- Señal derecha
-        ejex    => ex,   -- Coordenada X del VGA
-        ejey    => ey,   -- Coordenada Y del VGA
-        refresh => ref,   -- Señal de refresco del VGA
-        pos_p   => posp_s,   -- Salida con la posición de la pala
-        RGBin   => RGBpala    -- Color generado por la pala (12 bits)
+      ejex  => ex,
+      ejey  => ey,
+      RGBin => RGBfondo
     );
 
-    
-U4 : bola
+  -- Pala del jugador
+  U3 : pala
     Port map(
-        clk        => clk,   -- Reloj
-        reset      => reset,   -- Reset
-        right      => right_g,
-        left       => left_g,
-        refresh    => refresh_bola_g,   -- Señal de refresco del VGA
-        ejex       => ex,   -- Coordenada X
-        ejey       => ey,   -- Coordenada Y
-        data_bola  => data_bola_s ,   -- Datos desde el control del juego
-        valid_bola => valid_bola_s ,   -- Validación desde el control del juego
-        ready_bola => ready_bola_s ,   -- Indica que la bola está lista
-        pierde_vida => pierde_vida_s,
-        RGBbola    => RGBbola    -- Color generado por la bola
+      clk     => clk,
+      reset   => reset,
+      left    => left_g,   -- movimiento izquierda (congelado en game over)
+      right   => right_g,  -- movimiento derecha (congelado en game over)
+      ejex    => ex,
+      ejey    => ey,
+      refresh => ref,      -- refresco general (no el gateado de la bola)
+      pos_p   => posp_s,   -- posición de la pala (no se usa más arriba)
+      RGBin   => RGBpala   -- color generado por la pala
     );
 
-    
-U5 : control_juego
+  -- Bola
+  U4 : bola
     Port map(
-        clk          => clk,   -- Reloj
-        reset        => reset,   -- Reset
-        ejex         => ex,
-        ejey         => ey,   
-        RGB_bola     => RGBbola,   -- Color de la bola
-        RGB_bloque   => RGBbloque,   -- Color del bloque (si tienes bloques)
-        RGB_pala     => RGBpala,   -- Color de la pala
-
-        data_bloque  => data_bloque_s,   -- Datos hacia el bloque
-        valid_bloque => valid_bloque_s,   -- Valid
-        ready_bloque => ready_bloque_s,   -- Ready
-
-        RGB_in       => RGB_in_s,   -- Salida final hacia el VGA
-
-        data_bola    => data_bola_s ,   -- Datos hacia la bola
-        valid_bola   => valid_bola_s ,   -- Valid para la bola
-        ready_bola   => ready_bola_s     -- Ready desde la bola
-
+      clk         => clk,
+      reset       => reset,
+      right       => right_g,
+      left        => left_g,
+      refresh     => refresh_bola_g,   -- refresco de la bola (parado en game over)
+      ejex        => ex,
+      ejey        => ey,
+      data_bola   => data_bola_s,
+      valid_bola  => valid_bola_s,
+      ready_bola  => ready_bola_s,
+      pierde_vida => pierde_vida_s,    -- evento: se cayó la bola
+      RGBbola     => RGBbola
     );
-    
- U6: borrar_bloque
+
+  -- Control de colisiones y mezcla de RGB_bola / RGB_bloque / RGB_pala
+  U5 : control_juego
     Port map(
-        clk => clk,
-        reset => reset,
-        data_bloque => data_bloque_s,
-        valid_bloque => valid_bloque_s,
-        ready_bloque => ready_bloque_s,
-        WR_A => WR_A_s,
-        data_in_A => data_in_A_s,
-        ADDR_A => ADDR_A_s
-        );
-        
-  U7: draw_bloque
+      clk          => clk,
+      reset        => reset,
+      ejex         => ex,
+      ejey         => ey,
+      RGB_bola     => RGBbola,
+      RGB_bloque   => RGBbloque,
+      RGB_pala     => RGBpala,
+
+      data_bloque  => data_bloque_s,
+      valid_bloque => valid_bloque_s,
+      ready_bloque => ready_bloque_s,
+
+      RGB_in       => RGB_in_s,
+
+      data_bola    => data_bola_s,
+      valid_bola   => valid_bola_s,
+      ready_bola   => ready_bola_s
+    );
+
+  -- Módulo que manda escribir "0" en la RAM cuando un bloque se rompe
+  U6 : borrar_bloque
     Port map(
-        clk => clk,
-        ejex => ex,
-        ejey => ey,
-        data_out_B => data_out_B_s,
-        RGB_bloque => RGBbloque,
-        ADDR_B => ADDR_B_s
-        );
-        
-   U8: blk_mem_gen_0
-     Port map(
-        clka => clk,
-        wea => wea_v, 
-        addra => ADDR_A_s,
-        dina => dina_v,
-        clkb => clk,
-        addrb => ADDR_B_s,
-        doutb => doutb_v
-        );
-        
-    U_GO : sprite_game_over
-      port map (
-        clka  => clk,
-        addra => go_addr,
-        douta => go_rgb
-      );
+      clk          => clk,
+      reset        => reset,
+      data_bloque  => data_bloque_s,
+      valid_bloque => valid_bloque_s,
+      ready_bloque => ready_bloque_s,
+      WR_A         => WR_A_s,
+      data_in_A    => data_in_A_s,
+      ADDR_A       => ADDR_A_s
+    );
 
-      
-      U_VIDAS_ROM : blk_mem_gen_1
-  port map (
-    clka  => clk,
-    addra => vida_addr_s,
-    douta => vida_rgb_s
-  );
+  -- Dibujo de bloques (a partir de data_out_B_s)
+  U7 : draw_bloque
+    Port map(
+      clk        => clk,
+      ejex       => ex,
+      ejey       => ey,
+      data_out_B => data_out_B_s,
+      RGB_bloque => RGBbloque,
+      ADDR_B     => ADDR_B_s
+    );
 
-     U10 : vidas_hud
-  port map(
-    ejex      => ex,
-    ejey      => ey,
-    num_vidas => vidas_reg,   -- tu contador de vidas
-    vida_rgb  => vida_rgb_s,  -- datos desde la BRAM del sprite
-    vida_addr => vida_addr_s, -- dirección hacia la BRAM
-    RGBvidas  => RGBvidas_s
-  );
+  -- RAM de bloques (bit por celda) con dos puertos:
+  --   - Puerto A: escritura (borrar_bloque)
+  --   - Puerto B: lectura (draw_bloque)
+  U8 : blk_mem_gen_0
+    Port map(
+      clka  => clk,
+      wea   => wea_v,
+      addra => ADDR_A_s,
+      dina  => dina_v,
+      clkb  => clk,
+      addrb => ADDR_B_s,
+      doutb => doutb_v
+    );
 
+  -- ROM del sprite de GAME OVER (imagen grande centrada)
+  U_GO : sprite_game_over
+    Port map (
+      clka  => clk,
+      addra => go_addr,
+      douta => go_rgb
+    );
 
+  -- ROM con el sprite de “corazón” / vida
+  U_VIDAS_ROM : blk_mem_gen_1
+    Port map (
+      clka  => clk,
+      addra => vida_addr_s,
+      douta => vida_rgb_s
+    );
 
--- process que va a controlar todo el tema de las vidas y la activación de 
--- game over en caso de que alcancen las 0 vidas
- process(clk, reset)
-begin
+  -- HUD de vidas (usa la ROM anterior)
+  U10 : vidas_hud
+    Port map(
+      ejex      => ex,
+      ejey      => ey,
+      num_vidas => vidas_reg,    -- número de vidas restante
+      vida_rgb  => vida_rgb_s,   -- dato leído de la ROM
+      vida_addr => vida_addr_s,  -- dirección para la ROM
+      RGBvidas  => RGBvidas_s
+    );
+
+  -------------------------------------------------------------------
+  -- CONTROL DE VIDAS Y GAME OVER
+  --
+  -- Lógica sencilla:
+  --   - Empezamos con 3 vidas (vidas_reg = 3)
+  --   - Cada vez que la bola emite pierde_vida_s = '1':
+  --       * decrementamos vidas_reg (hasta 0)
+  --       * si pasamos de 1 a 0 → activamos game_over_s
+  --   - Una vez en GAME OVER, nos quedamos ahí “para siempre”.
+  -------------------------------------------------------------------
+  process(clk, reset)
+  begin
     if reset = '1' then
-        vidas_reg   <= to_unsigned(3, 2);  -- 3 vidas al inicio
-        game_over_s <= '0';
+      vidas_reg   <= to_unsigned(3, 2);  -- 3 vidas al inicio
+      game_over_s <= '0';
     elsif rising_edge(clk) then
-        -- si ya estamos en GAME OVER, nos quedamos ahí
-        if game_over_s = '1' then
+      -- Si ya estamos en GAME OVER, no salimos
+      if game_over_s = '1' then
+        game_over_s <= '1';
+      else
+        -- Evento de muerte de la bola
+        if pierde_vida_s = '1' then
+          if vidas_reg > 0 then
+            vidas_reg <= vidas_reg - 1;
+          end if;
+
+          -- Si justo estábamos en 1, al decrementar pasamos a 0 → GAME OVER
+          if vidas_reg = to_unsigned(1,2) then
             game_over_s <= '1';
-        else
-            -- evento de muerte de la bola
-            if pierde_vida_s = '1' then
-                if vidas_reg > 0 then
-                    vidas_reg <= vidas_reg - 1;
-                end if;
-
-                -- si se ha quedado en 0 vidas → GAME OVER
-                if vidas_reg = to_unsigned(1,2) then
-                    -- al decrementar pasará a 0
-                    game_over_s <= '1';
-                end if;
-            end if;
+          end if;
         end if;
+      end if;
     end if;
-end process;
+  end process;
 
-       
--- Dibujo de la imagen GAME OVER (sprite 320x240 centrado)
-gameover_draw : process(ejex, ejey, game_over_s, go_rgb)
-  variable x, y   : unsigned(9 downto 0);
-  variable lx, ly : unsigned(9 downto 0);      -- coords locales 0..319 / 0..239
-  variable ly17   : unsigned(16 downto 0);
-  variable addr   : unsigned(16 downto 0);
-begin
-  -- por defecto, nada
-  RGB_gameover <= (others => '0');
-  go_addr      <= (others => '0');
+  -------------------------------------------------------------------
+  -- DIBUJO DE LA IMAGEN DE GAME OVER
+  --
+  -- Dibuja un sprite de 320x240 centrado en la pantalla:
+  --   - X: 160..479
+  --   - Y: 120..359
+  --
+  -- Calcula la dirección en la ROM como:
+  --   addr = ly * 320 + lx
+  --        = (ly << 8) + (ly << 6) + lx
+  -------------------------------------------------------------------
+  gameover_draw : process(ejex, ejey, game_over_s, go_rgb)
+    variable x, y   : unsigned(9 downto 0);
+    variable lx, ly : unsigned(9 downto 0);      -- coords locales 0..319 / 0..239
+    variable ly17   : unsigned(16 downto 0);
+    variable addr   : unsigned(16 downto 0);
+  begin
+    -- Por defecto, negro y dirección 0
+    RGB_gameover <= (others => '0');
+    go_addr      <= (others => '0');
 
-  if game_over_s = '1' then
-    x := unsigned(ejex);
-    y := unsigned(ejey);
+    if game_over_s = '1' then
+      x := unsigned(ejex);
+      y := unsigned(ejey);
 
-    -- colocamos la imagen 320x240 centrada:
-    --  X: 160..479  (ancho 320)
-    --  Y: 120..359  (alto 240)
-    if (x >= to_unsigned(160,10)) and (x < to_unsigned(480,10)) and
-       (y >= to_unsigned(120,10)) and (y < to_unsigned(360,10)) then
+      -- Ventana donde va la imagen de GAME OVER (centrada)
+      if (x >= to_unsigned(160,10)) and (x < to_unsigned(480,10)) and
+         (y >= to_unsigned(120,10)) and (y < to_unsigned(360,10)) then
 
-      -- coordenadas locales dentro de la imagen
-      lx := x - to_unsigned(160,10);  -- 0..319
-      ly := y - to_unsigned(120,10);  -- 0..239
+        -- coordenadas locales dentro de la imagen 320x240
+        lx := x - to_unsigned(160,10);  -- 0..319
+        ly := y - to_unsigned(120,10);  -- 0..239
 
-      -- dirección = ly * 320 + lx
-      -- 320 = 256 + 64 => (ly<<8) + (ly<<6)
-      ly17 := resize(ly, 17);
-      addr := (ly17 sll 8) + (ly17 sll 6) + resize(lx, 17);
+        -- dirección = ly * 320 + lx
+        -- 320 = 256 + 64 => (ly<<8) + (ly<<6)
+        ly17 := resize(ly, 17);
+        addr := (ly17 sll 8) + (ly17 sll 6) + resize(lx, 17);
 
-      go_addr      <= std_logic_vector(addr);
-      RGB_gameover <= go_rgb;  -- color leído 
+        go_addr      <= std_logic_vector(addr);
+        RGB_gameover <= go_rgb;  -- color leído de la ROM
 
+      else
+        -- fuera del rectángulo de la imagen: blanco (como borde o fondo)
+        RGB_gameover <= (others => '1');
+      end if;
+    end if;
+  end process;
+
+  -------------------------------------------------------------------
+  -- MUX FINAL DE COLORES HACIA RGBin
+  --
+  -- Prioridad:
+  --   1) Si estamos en GAME OVER → mostrar solo la imagen de GAME OVER.
+  --   2) Si no, el HUD de vidas tiene preferencia.
+  --   3) Si tampoco hay HUD en este píxel → fondo OR RGB_in_s
+  --      (donde RGB_in_s ya viene de mezclar bola/pala/bloques).
+  -------------------------------------------------------------------
+  process(RGB_in_s, RGBfondo, RGB_gameover, RGBvidas_s, game_over_s)
+  begin
+    if game_over_s = '1' then
+      -- Pantalla de GAME OVER (imagen de la ROM)
+      RGBin <= RGB_gameover;
     else
-      RGB_gameover <= (others => '1');
+      -- HUD de vidas tiene prioridad sobre el resto
+      if RGBvidas_s /= CERO_RGB then
+        RGBin <= RGBvidas_s;
+      else
+        -- fondo + resto de elementos del juego (bola, pala, bloques)
+        RGBin <= RGBfondo or RGB_in_s;
+      end if;
     end if;
-  end if;
-end process;
-
-        
-process(RGB_in_s, RGBfondo, RGB_gameover, RGBvidas_s, game_over_s)
-begin
-  if game_over_s = '1' then
-    -- Pantalla de GAME OVER (imagen de la ROM)
-    RGBin <= RGB_gameover;
-  else
-    -- HUD de vidas tiene prioridad
-    if RGBvidas_s /= CERO_RGB then
-      RGBin <= RGBvidas_s;
-    else
-      RGBin <= RGBfondo or RGB_in_s;
-    end if;
-  end if;
-end process;
-
-
+  end process;
 
 end Behavioral;
